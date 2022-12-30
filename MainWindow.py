@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (
     QComboBox, QPushButton, QWidget)
 import pandas as pd
 
+
 #Definition of Main window
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -54,62 +55,6 @@ class MainWindow(QMainWindow):
         # fname[0]は選択したファイルのパス（ファイル名を含む）
         if fPath[0]:
             dataset = pd.read_csv(fPath[0], header = 32)
-
-
-    #XPSピークフィッティングに使用するウィンドウの表示に関するメソッド, ピークのパラメータを入力する画面
-    def show_XPSpanel(self):
-
-        #---------Setting for Fit Panel---------
-        FitPanel = QMdiSubWindow()
-        FitPanel.setWindowTitle("Fitting Panel")
-        FitPanel.setFixedWidth(800)
-        FitPanel.setFixedHeight(300)
-        self.mdi.addSubWindow(FitPanel)
-
-        #コンボボックスの生成
-        combo_SpectraName = QComboBox(FitPanel)
-        combo_SpectraName.move(10, 30)
-        combo_SpectraName.setFixedWidth(200)
-        SpectraName = [1, 2, 3]
-        for i in SpectraName:
-            combo_SpectraName.addItem(f"{i}") #ループでリストの中身をコンボボックスの表示値に
-
-        #ボタンの生成
-        ButtonName = ['Open Graph', 'Check', 'Fit']
-        for i in range(len(ButtonName)):
-            Button = QPushButton(ButtonName[i], FitPanel)
-            Button.move(250+(90*i), 30)
-
-        FitPanel.show()
-        #---------Setting for Fit Panel----------
-
-        #---------Setting for Data Panel----------
-        DataPanel = QMdiSubWindow()
-        DataPanel.setWindowTitle("Data Preparation Panel")
-        DataPanel.setFixedWidth(300)
-        DataPanel.setFixedHeight(400)
-        self.mdi.addSubWindow(DataPanel)
-
-        #コンボボックスの生成
-        combo_DataX = QComboBox(DataPanel)
-        combo_DataX.move(50, 50)
-        combo_DataX.setFixedWidth(80)
-        RangeX = []
-        for i in RangeX:
-            combo_DataX.addItem(f'{i}')
-        Label_DataX = QLabel('X :', DataPanel)
-        Label_DataX.move(20, 50)
-
-        combo_DataY = QComboBox(DataPanel)
-        combo_DataY.move(50, 80)
-        combo_DataY.setFixedWidth(120)
-        for i in SpectraName:
-            combo_DataY.addItem(f'{i}')
-        Label_DataY = QLabel('Y :', DataPanel)
-        Label_DataY.move(20, 80)
-
-        DataPanel.show()
-        #---------Setting for Data Panel----------
 
     def show_XPSpanel_2(self):
         self.XPS = XPS_FittingPanel()
@@ -174,6 +119,7 @@ class XPS_FittingPanel(QWidget):
 
         #self.DataPanel.show()
         #---------Setting for Data Panel----------
+
 
 #実行部
 if __name__ == '__main__':
