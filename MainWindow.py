@@ -28,7 +28,7 @@ class MainWindow(QMainWindow):
 
         XPS_PeakFit = QAction("Peak Fitting", self)
         XPS_PeakFit.setStatusTip("Fit XPS spectra")
-        XPS_PeakFit.triggered.connect(self.show_XPSpanel_2) #クッリクした時の挙動をconnectで連結
+        XPS_PeakFit.triggered.connect(self.show_XPSpanel) #クッリクした時の挙動をconnectで連結
 
         XRD_PoleFigure = QAction("Pole Figure", self)
         XRD_PoleFigure.setStatusTip("Plot pole figure")
@@ -56,8 +56,11 @@ class MainWindow(QMainWindow):
         if fPath[0]:
             dataset = pd.read_csv(fPath[0], header = 32)
 
-    def show_XPSpanel_2(self):
+    def show_XPSpanel(self):
         self.XPS = XPS_FittingPanel()
+        self.mdi.addSubWindow(self.XPS.FitPanel)
+        self.mdi.addSubWindow(self.XPS.DataPanel)
+        self.XPS.FitPanel.show()
         self.XPS.DataPanel.show()
 
 
@@ -67,13 +70,11 @@ class XPS_FittingPanel(QWidget):
         self.initUI()
 
     def initUI(self):
-        Main = MainWindow()
         #---------Setting for Fit Panel---------
         self.FitPanel = QMdiSubWindow()
         self.FitPanel.setWindowTitle("Fitting Panel")
         self.FitPanel.setFixedWidth(800)
         self.FitPanel.setFixedHeight(300)
-        Main.mdi.addSubWindow(self.FitPanel)
 
         #コンボボックスの生成
         self.combo_SpectraName = QComboBox(self.FitPanel)
@@ -88,8 +89,6 @@ class XPS_FittingPanel(QWidget):
         for i in range(len(ButtonName)):
             self.Button = QPushButton(ButtonName[i], self.FitPanel)
             self.Button.move(250+(90*i), 30)
-
-        #self.FitPanel.show()
         #---------Setting for Fit Panel----------
 
         #---------Setting for Data Panel----------
@@ -97,7 +96,6 @@ class XPS_FittingPanel(QWidget):
         self.DataPanel.setWindowTitle("Data Preparation Panel")
         self.DataPanel.setFixedWidth(300)
         self.DataPanel.setFixedHeight(400)
-        Main.mdi.addSubWindow(self.DataPanel)
 
         #コンボボックスの生成
         self.combo_DataX = QComboBox(self.DataPanel)
@@ -116,8 +114,6 @@ class XPS_FittingPanel(QWidget):
             self.combo_DataY.addItem(f'{i}')
         self.Label_DataY = QLabel('Y :', self.DataPanel)
         self.Label_DataY.move(20, 80)
-
-        #self.DataPanel.show()
         #---------Setting for Data Panel----------
 
 
