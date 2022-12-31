@@ -3,10 +3,9 @@ from PyQt5.QtWidgets import (
     QMainWindow, QAction, QFileDialog, QApplication, QMdiArea, QMdiSubWindow, QLabel,
     QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout)
 import pandas as pd
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
-
-
 
 #Definition of Main window
 class MainWindow(QMainWindow):
@@ -264,16 +263,42 @@ class XPS_FittingPanels(QWidget):
         self.PlotPanel.setWindowTitle("Graph")
         self.PlotPanel.setGeometry(250, 250, 500, 500)
         
+        config = {
+            "xtick.direction": "in",
+            "ytick.direction": "in",
+            "xtick.major.width": 1.5,
+            "ytick.major.width": 1.5,
+            "xtick.minor.width": 1.0,
+            "ytick.minor.width": 1.0,
+            "xtick.major.size": 5.0,
+            "ytick.major.size": 5.0,
+            "xtick.minor.size": 3.0,
+            "ytick.minor.size": 3.0,
+            "font.family": "Arial",
+            "font.size": 12
+        }
+        plt.rcParams.update(config)
+
         self.fig = Figure()
         self.ax = self.fig.add_subplot(111)
+        self.ax.spines["top"].set_visible(False) #プロット外周部の黒枠削除
+        self.ax.spines["right"].set_visible(False) #プロット外周部の黒枠削除
+        self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+        self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
+        self.ax.minorticks_on()
+
         self.canvas = FigureCanvasQTAgg(self.fig)
         self.toolbar = NavigationToolbar2QT(self.canvas, self.PlotPanel)
         
+        self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.toolbar)        
+        self.layout.addWidget(self.canvas)
         
+        self.widget = QWidget()
+        self.widget.setLayout(self.layout)
+        self.PlotPanel.setWidget(self.widget)
         #---------Setting for Plot Panel------------
-
-        
-
 
 
 #実行部
