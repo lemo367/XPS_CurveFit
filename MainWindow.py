@@ -195,10 +195,10 @@ class XPS_FittingPanels(QWidget):
             self.Label_BGCoeff.move(10, 275+30*i)
 
         #ボタンの生成
-        ButtonName = ['Open Graph', 'Check', 'Fit']
-        for i in range(len(ButtonName)):
-            self.Button = QPushButton(ButtonName[i], self.FitPanel)
-            self.Button.move(250+(90*i), 30)
+        ButtonName_Fit = ['Open Graph', 'Check', 'Fit']
+        for i in range(len(ButtonName_Fit)):
+            self.Button_Fit = QPushButton(ButtonName_Fit[i], self.FitPanel)
+            self.Button_Fit.move(250+(90*i), 30)
         #---------Setting for Fit Panel----------
 
 
@@ -225,6 +225,21 @@ class XPS_FittingPanels(QWidget):
             self.combo_DataY.addItem(f'{i}')
         self.Label_DataY = QLabel('Y :', self.DataPanel)
         self.Label_DataY.move(20, 80)
+
+        #ボタンの生成
+        ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Substract']
+        for i in range(len(ButtonName_Data)):
+            self.Button_Data = QPushButton(ButtonName_Data[i], self.DataPanel)
+            if i == 0:
+                self.Button_Data.move(20+(90*i), 110)
+
+            elif i == 1:
+                self.Button_Data.move(20+(90*i), 110)
+                self.Button_Data.setFixedWidth(180)
+
+            else:
+                self.Button_Data.move(20, 180)
+
         #---------Setting for Data Panel----------
 
 
