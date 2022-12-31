@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
     QMainWindow, QAction, QFileDialog, QApplication, QMdiArea, QMdiSubWindow, QLabel,
-    QComboBox, QPushButton, QWidget, QDoubleSpinBox)
+    QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox)
 import pandas as pd
 
 
@@ -43,7 +43,7 @@ class MainWindow(QMainWindow):
         Menu_XRD = toolbar.addMenu("&XRD") #XRDのプロットに関するツールを実装予定, 一番は極点図, omega-2thetaは汎用プロット機能が実装できればそれでよい
         Menu_XRD.addAction(XRD_PoleFigure)
 
-        self.setGeometry(0, 0, 1200, 800) #Main Windowのサイズ, (x, y, width, height)
+        self.setGeometry(0, 0, 1600, 800) #Main Windowのサイズ, (x, y, width, height)
         self.setWindowTitle('Main Window') #Main Windowのタイトル
         self.show() #Main Windowの表示
 
@@ -63,6 +63,8 @@ class MainWindow(QMainWindow):
         self.mdi.addSubWindow(self.XPS.DataPanel)
         self.XPS.FitPanel.show()
         self.XPS.DataPanel.show()
+#-----------END class Main Window------------------
+
 
 #XPSのfittingに際して使用するwindow類の定義クラス
 class XPS_FittingPanels(QWidget):
@@ -85,6 +87,18 @@ class XPS_FittingPanels(QWidget):
         for i in SpectraName:
             self.combo_SpectraName.addItem(f"{i}") #ループでリストの中身をコンボボックスの表示値に
 
+        ReltMethod = ['Method 1', 'Method 2']
+        self.combo_HowRelative = QComboBox(self.FitPanel)
+        self.combo_HowRelative.move(395, 305)
+        for i in ReltMethod:
+            self.combo_HowRelative.addItem(f'{i}')
+
+        AbsANDRel = ['Absol.', 'Relat.']
+        self.Abs_Rel = QComboBox(self.FitPanel)
+        self.Abs_Rel.move(255, 305)
+        for i in AbsANDRel:
+            self.Abs_Rel.addItem(f'{i}')
+
         #スピンボックスの生成
         for i in range(0, 36, 1):
             self.spinBOX = QDoubleSpinBox(self.FitPanel)
@@ -102,7 +116,7 @@ class XPS_FittingPanels(QWidget):
 
             elif 18 <= i <= 23:
                 self.spinBOX.move(70+(140*(i-18)), 170)
-                self.spinBOX.index = f"Gamma(wid Lorentzian). {i-17}"
+                self.spinBOX.index = f"Gamma {i-17}"
 
             elif 24 <= i <= 29:
                 self.spinBOX.move(70+(140*(i-24)), 200)
@@ -112,10 +126,73 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.move(70+(140*(i-30)), 230)
                 self.spinBOX.index = f"B.R. {i-29}"
 
+        for i in range(0, 2, 1):
+            self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
+            self.BGspinBOX.move(70, 275+30*i)
+            self.BGspinBOX.index = f'B.G. {i}'
+
+        #チェックボックスの生成
+        for i in range(0, 36, 1):
+            self.CheckBox = QCheckBox(self.FitPanel)
+            if i <= 5:
+                self.CheckBox.move(180+(140*i), 80)
+                self.CheckBox.index = f"Check_B.E. {i+1}"
+            
+            elif 6 <= i <= 11:
+                self.CheckBox.move(180+(140*(i-6)), 110)
+                self.CheckBox.index = f"Check_Int. {i-5}"
+
+            elif 12 <= i <= 17:
+                self.CheckBox.move(180+(140*(i-12)), 140)
+                self.CheckBox.index = f"Check_W_gau. {i-11}"
+
+            elif 18 <= i <= 23:
+                self.CheckBox.move(180+(140*(i-18)), 170)
+                self.CheckBox.index = f"Check_Gamma {i-17}"
+
+            elif 24 <= i <= 29:
+                self.CheckBox.move(180+(140*(i-24)), 200)
+                self.CheckBox.index = f"Check_S.O.S. {i-23}"
+
+            elif 30 <= i <= 35:
+                self.CheckBox.move(180+(140*(i-30)), 230)
+                self.CheckBox.index = f"Check_B.R. {i-29}"
+
+        for i in range(0, 2, 1):
+            self.BGcheckBOX = QCheckBox(self.FitPanel)
+            self.BGcheckBOX.move(180, 275+30*i)
+            self.BGcheckBOX.index = f'Check_B.G. {i}'
+
+
+        #各種ラベルの定義
         ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
         for i in range(len(ParamName)):
             self.Label_Param = QLabel(ParamName[i], self.FitPanel)
             self.Label_Param.move(20, 30*i+80)
+
+        No_composition = [f'Comp. {i}' for i in range(1, 7, 1)]
+        for i in range(len(No_composition)):
+            self.Label_comp = QLabel(No_composition[i], self.FitPanel)
+            self.Label_comp.move(90+(140*i), 55)
+
+        for i in range(0, 6, 1):
+            self.Label_hold = QLabel('Hold', self.FitPanel)
+            self.Label_hold.move(175+(140*i), 55)
+
+        Tips = ['B.E. value: Absolute/Relative', 'Method 1: All B.E. values are relative to Comp. 1', 'Method 2: Relative values are Comp. 2 (to Comp. 1), Comp. 4 (to Comp. 3)...']
+        for i in range(len(Tips)):
+            self.Label_Tips = QLabel(f'<p><font size="2.5">{Tips[i]}</font></p>', self.FitPanel)
+            if i < 1:
+                self.Label_Tips.move(240, 285)
+                self.Label_Tips.setFixedWidth(130)
+            else:
+                self.Label_Tips.move(500, 300+15*(i-1))
+                self.Label_Tips.setFixedWidth(335)
+
+        BGCoeff = ['Slope', 'Intercept']
+        for i in range(len(BGCoeff)):
+            self.Label_BGCoeff = QLabel(BGCoeff[i], self.FitPanel)
+            self.Label_BGCoeff.move(10, 275+30*i)
 
         #ボタンの生成
         ButtonName = ['Open Graph', 'Check', 'Fit']
@@ -123,6 +200,7 @@ class XPS_FittingPanels(QWidget):
             self.Button = QPushButton(ButtonName[i], self.FitPanel)
             self.Button.move(250+(90*i), 30)
         #---------Setting for Fit Panel----------
+
 
         #---------Setting for Data Panel----------
         self.DataPanel = QMdiSubWindow()
