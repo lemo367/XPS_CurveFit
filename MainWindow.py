@@ -1,8 +1,11 @@
 import sys
 from PyQt5.QtWidgets import (
     QMainWindow, QAction, QFileDialog, QApplication, QMdiArea, QMdiSubWindow, QLabel,
-    QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox)
+    QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout)
 import pandas as pd
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.figure import Figure
+
 
 
 #Definition of Main window
@@ -61,8 +64,10 @@ class MainWindow(QMainWindow):
         self.XPS = XPS_FittingPanels()
         self.mdi.addSubWindow(self.XPS.FitPanel)
         self.mdi.addSubWindow(self.XPS.DataPanel)
+        self.mdi.addSubWindow(self.XPS.PlotPanel)
         self.XPS.FitPanel.show()
         self.XPS.DataPanel.show()
+        self.XPS.PlotPanel.show()
 #-----------END class Main Window------------------
 
 
@@ -212,7 +217,7 @@ class XPS_FittingPanels(QWidget):
         self.combo_DataX = QComboBox(self.DataPanel)
         self.combo_DataX.move(50, 50)
         self.combo_DataX.setFixedWidth(80)
-        RangeX = []
+        RangeX = [] #Dataの横軸に関する量、またはDataFrameの列名などが入る予定
         for i in RangeX:
             self.combo_DataX.addItem(f'{i}')
         self.Label_DataX = QLabel('X :', self.DataPanel)
@@ -226,10 +231,18 @@ class XPS_FittingPanels(QWidget):
         self.Label_DataY = QLabel('Y :', self.DataPanel)
         self.Label_DataY.move(20, 80)
 
+        BGSubstractionMethod = ['Shirley', 'Linear']
+        self.combo_BGsubs = QComboBox(self.DataPanel)
+        self.combo_BGsubs.move(20, 180)
+        for i in BGSubstractionMethod:
+            self.combo_BGsubs.addItem(i)
+
         #ボタンの生成
         ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Substract']
         for i in range(len(ButtonName_Data)):
             self.Button_Data = QPushButton(ButtonName_Data[i], self.DataPanel)
+            self.Button_Data.index = ButtonName_Data[i]
+
             if i == 0:
                 self.Button_Data.move(20+(90*i), 110)
 
@@ -238,9 +251,29 @@ class XPS_FittingPanels(QWidget):
                 self.Button_Data.setFixedWidth(180)
 
             else:
-                self.Button_Data.move(20, 180)
+                self.Button_Data.move(110, 180)
 
+        #各種ラベル
+        self.Label_BGmethod = QLabel('<p><font size="3">Choose substraction method of background</font></p>', self.DataPanel)
+        self.Label_BGmethod.move(10, 160)
+        self.Label_BGmethod.setFixedWidth(270)
         #---------Setting for Data Panel----------
+
+        #---------Setting for Plot Panel----------
+        self.PlotPanel = QMdiSubWindow()
+        self.PlotPanel.setWindowTitle("Graph")
+        self.PlotPanel.setGeometry(250, 250, 500, 500)
+        
+        self.fig = Figure()
+        self.ax = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasQTAgg(self.fig)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self.PlotPanel)
+        
+        
+        #---------Setting for Plot Panel------------
+
+        
+
 
 
 #実行部
