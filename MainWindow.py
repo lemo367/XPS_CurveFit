@@ -1,4 +1,5 @@
 import sys
+import re
 from PyQt5.QtWidgets import (
     QMainWindow, QAction, QFileDialog, QApplication, QMdiArea, QMdiSubWindow, QLabel,
     QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout)
@@ -32,6 +33,10 @@ class MainWindow(QMainWindow):
         XPS_PeakFit.setStatusTip("Fit XPS spectra")
         XPS_PeakFit.triggered.connect(self.show_XPSpanel) #クッリクした時の挙動をconnectで連結
 
+        XPS_DataLoad = QAction('Open File', self)
+        XPS_DataLoad.setStatusTip('Load XPS Data. Currently supports Kratos XPS data.')
+        XPS_DataLoad.triggered.connect(self.XPS_DataReshape)
+
         XRD_PoleFigure = QAction("Pole Figure", self)
         XRD_PoleFigure.setStatusTip("Plot pole figure")
 
@@ -40,12 +45,13 @@ class MainWindow(QMainWindow):
         fileMenu.addAction(openFile)
 
         Menu_XPS = toolbar.addMenu("&XPS") #XPS解析に使用するツール, fittingに関するものを実装予定
+        Menu_XPS.addAction(XPS_DataLoad)
         Menu_XPS.addAction(XPS_PeakFit)
 
         Menu_XRD = toolbar.addMenu("&XRD") #XRDのプロットに関するツールを実装予定, 一番は極点図, omega-2thetaは汎用プロット機能が実装できればそれでよい
         Menu_XRD.addAction(XRD_PoleFigure)
 
-        self.setGeometry(0, 0, 1600, 800) #Main Windowのサイズ, (x, y, width, height)
+        self.setGeometry(0, 0, 1600, 1200) #Main Windowのサイズ, (x, y, width, height)
         self.setWindowTitle('Main Window') #Main Windowのタイトル
         self.show() #Main Windowの表示
 
@@ -57,6 +63,56 @@ class MainWindow(QMainWindow):
         # fname[0]は選択したファイルのパス（ファイル名を含む）
         if fPath[0]:
             dataset = pd.read_csv(fPath[0], header = 32)
+
+
+    #XPSのデータを読み込むメソッド, 複数のデータの分割にも対応
+    def XPS_DataReshape(self):
+        # 第二引数はダイアログのタイトル、第三引数は表示するパス
+        fname = QFileDialog.getOpenFileName(self, 'Open file', '/home')
+
+        # fname[0]は選択したファイルのパス（ファイル名を含む）
+        if fname[0]:
+            # ファイル読み込み
+            f = open(fname[0], 'r')
+            # テキストエディタにファイル内容書き込み
+            with f:
+                self.data = f.read()
+        
+        LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'
+        LO_colon = [i.start() for i in re.finditer(':', self.data)] #Location of ':' (colon)
+        len_Data = len(self.data) #Length of data as nomber of characters
+        SpectraName = [self.data[LO_Dataset[i][1]+1 : LO_colon[i]] for i in range(len(LO_colon))] #Spectra name List
+        
+        if len(LO_Dataset) != 1:
+            #--------ファイル分割処理---------
+            Dict_Data = {} #分割したテキストデータを管理する辞書
+            for i in range(len(LO_Dataset)):
+                if i+1 < len(LO_Dataset):
+                    Div_data = self.data[LO_Dataset[i][0] : LO_Dataset[i+1][0]]
+
+                elif i+1 == len(LO_Dataset):
+                    Div_data = self.data[LO_Dataset[i][0] : len_Data]
+            
+                Dict_Data[SpectraName[i]] = Div_data #辞書に分割したテキストデータを追加
+
+            LO_SlashinPath = fname[0].rfind('/')
+            PrefixDir = fname[0][0 : LO_SlashinPath]
+            Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName] #分割したテキストデータのファイルパスのリスト
+
+            Dict_DF = {} #分割したテキストデータをDataframeとして読み込み、管理する辞書
+            for i in range(len(Div_DataFilePath)):
+                with open(Div_DataFilePath[i], mode = 'w') as f:
+                    f.write(Dict_Data[SpectraName[i]])
+
+                dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = '\t') #分割したテキストデータをDataframeとして読み込み
+                Dict_DF[SpectraName[i]] = dataset #辞書に読み込んだDataframeを追加
+            #------------ファイル分割処理--------------
+
+        else:
+            Dict_DF = {}
+            dataset = pd.read_csv(fname[0], header = 3, delimiter = '\t')
+            Dict_DF[SpectraName[i]] = dataset
+
 
     #XPSのfittingに際して使用する各種windowの表示を行うメソッド
     def show_XPSpanel(self):
@@ -284,6 +340,7 @@ class XPS_FittingPanels(QWidget):
         self.ax.spines["top"].set_visible(False) #プロット外周部の黒枠削除
         self.ax.spines["right"].set_visible(False) #プロット外周部の黒枠削除
         self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+        self.ax.invert_xaxis()
         self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
         self.ax.minorticks_on()
 
