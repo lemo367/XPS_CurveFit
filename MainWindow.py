@@ -67,51 +67,8 @@ class MainWindow(QMainWindow):
 
     #XPSのデータを読み込むメソッド, 複数のデータの分割にも対応
     def XPS_DataReshape(self):
-        # 第二引数はダイアログのタイトル、第三引数は表示するパス
-        fname = QFileDialog.getOpenFileName(self, 'Open file', '/home')
-
-        # fname[0]は選択したファイルのパス（ファイル名を含む）
-        if fname[0]:
-            # ファイル読み込み
-            f = open(fname[0], 'r')
-            # テキストエディタにファイル内容書き込み
-            with f:
-                self.data = f.read()
-        
-        LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'
-        LO_colon = [i.start() for i in re.finditer(':', self.data)] #Location of ':' (colon)
-        len_Data = len(self.data) #Length of data as nomber of characters
-        SpectraName = [self.data[LO_Dataset[i][1]+1 : LO_colon[i]] for i in range(len(LO_colon))] #Spectra name List
-        
-        if len(LO_Dataset) != 1:
-            #--------ファイル分割処理---------
-            Dict_Data = {} #分割したテキストデータを管理する辞書
-            for i in range(len(LO_Dataset)):
-                if i+1 < len(LO_Dataset):
-                    Div_data = self.data[LO_Dataset[i][0] : LO_Dataset[i+1][0]]
-
-                elif i+1 == len(LO_Dataset):
-                    Div_data = self.data[LO_Dataset[i][0] : len_Data]
-            
-                Dict_Data[SpectraName[i]] = Div_data #辞書に分割したテキストデータを追加
-
-            LO_SlashinPath = fname[0].rfind('/')
-            PrefixDir = fname[0][0 : LO_SlashinPath]
-            Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName] #分割したテキストデータのファイルパスのリスト
-
-            Dict_DF = {} #分割したテキストデータをDataframeとして読み込み、管理する辞書
-            for i in range(len(Div_DataFilePath)):
-                with open(Div_DataFilePath[i], mode = 'w') as f:
-                    f.write(Dict_Data[SpectraName[i]])
-
-                dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = '\t') #分割したテキストデータをDataframeとして読み込み
-                Dict_DF[SpectraName[i]] = dataset #辞書に読み込んだDataframeを追加
-            #------------ファイル分割処理--------------
-
-        else:
-            Dict_DF = {}
-            dataset = pd.read_csv(fname[0], header = 3, delimiter = '\t')
-            Dict_DF[SpectraName[i]] = dataset
+        loader = FileLoader()
+        loader.XPS_DataReshape()
 
 
     #XPSのfittingに際して使用する各種windowの表示を行うメソッド
@@ -126,6 +83,59 @@ class MainWindow(QMainWindow):
 #-----------END class Main Window------------------
 
 
+class FileLoader(QWidget):
+    XPS_Dict_DF = {} #分割したXPSテキストデータをDataframeとして読み込み、管理する辞書
+
+    def __init__(self) -> None:
+        super().__init__()
+    
+    #XPSのデータを読み込むメソッド, 複数のデータの分割にも対応
+    def XPS_DataReshape(self):
+        # 第二引数はダイアログのタイトル、第三引数は表示するパス
+        fname = QFileDialog.getOpenFileName(self, 'Open file', '/home')
+
+        # fname[0]は選択したファイルのパス（ファイル名を含む）
+        if fname[0]:
+            # ファイル読み込み
+            f = open(fname[0], 'r')
+            # テキストエディタにファイル内容書き込み
+            with f:
+                self.data = f.read()
+        
+            LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'
+            LO_colon = [i.start() for i in re.finditer(':', self.data)] #Location of ':' (colon)
+            len_Data = len(self.data) #Length of data as nomber of characters
+            SpectraName = [self.data[LO_Dataset[i][1]+1 : LO_colon[i]] for i in range(len(LO_colon))] #Spectra name List
+        
+            if len(LO_Dataset) != 1:
+                #--------ファイル分割処理---------
+                Dict_Data = {} #分割したテキストデータを管理する辞書
+                for i in range(len(LO_Dataset)):
+                    if i+1 < len(LO_Dataset):
+                        Div_data = self.data[LO_Dataset[i][0] : LO_Dataset[i+1][0]]
+
+                    elif i+1 == len(LO_Dataset):
+                        Div_data = self.data[LO_Dataset[i][0] : len_Data]
+            
+                    Dict_Data[SpectraName[i]] = Div_data #辞書に分割したテキストデータを追加
+
+                LO_SlashinPath = fname[0].rfind('/')
+                PrefixDir = fname[0][0 : LO_SlashinPath]
+                Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName] #分割したテキストデータのファイルパスのリスト
+
+                for i in range(len(Div_DataFilePath)):
+                    with open(Div_DataFilePath[i], mode = 'w') as f:
+                        f.write(Dict_Data[SpectraName[i]])
+
+                    dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = '\t') #分割したテキストデータをDataframeとして読み込み
+                    self.XPS_Dict_DF[SpectraName[i]] = dataset #辞書に読み込んだDataframeを追加
+            #------------ファイル分割処理--------------
+
+            else:
+                dataset = pd.read_csv(fname[0], header = 3, delimiter = '\t')
+                self.XPS_Dict_DF[SpectraName[0]] = dataset
+
+
 #XPSのfittingに際して使用するwindow類の定義クラス
 class XPS_FittingPanels(QWidget):
     def __init__(self):
@@ -133,6 +143,9 @@ class XPS_FittingPanels(QWidget):
         self.initUI()
 
     def initUI(self):
+        fileloader = FileLoader()
+        SpectraName = list(fileloader.XPS_Dict_DF.keys())
+
         #---------Setting for Fit Panel---------
         self.FitPanel = QMdiSubWindow()
         self.FitPanel.setWindowTitle("Fitting Panel")
@@ -143,7 +156,6 @@ class XPS_FittingPanels(QWidget):
         self.combo_SpectraName = QComboBox(self.FitPanel)
         self.combo_SpectraName.move(10, 30)
         self.combo_SpectraName.setFixedWidth(200)
-        SpectraName = [1, 2, 3]
         for i in SpectraName:
             self.combo_SpectraName.addItem(f"{i}") #ループでリストの中身をコンボボックスの表示値に
 
@@ -269,29 +281,28 @@ class XPS_FittingPanels(QWidget):
         self.DataPanel.setFixedHeight(400)
 
         #コンボボックスの生成
-        self.combo_DataX = QComboBox(self.DataPanel)
-        self.combo_DataX.move(50, 50)
-        self.combo_DataX.setFixedWidth(80)
-        RangeX = [] #Dataの横軸に関する量、またはDataFrameの列名などが入る予定
-        for i in RangeX:
-            self.combo_DataX.addItem(f'{i}')
-        self.Label_DataX = QLabel('X :', self.DataPanel)
-        self.Label_DataX.move(20, 50)
-
-        self.combo_DataY = QComboBox(self.DataPanel)
-        self.combo_DataY.move(50, 80)
-        self.combo_DataY.setFixedWidth(120)
+        self.combo_DataName = QComboBox(self.DataPanel)
+        self.combo_DataName.move(120, 43)
+        self.combo_DataName.setFixedWidth(120)
         for i in SpectraName:
-            self.combo_DataY.addItem(f'{i}')
-        self.Label_DataY = QLabel('Y :', self.DataPanel)
-        self.Label_DataY.move(20, 80)
+            self.combo_DataName.addItem(f'{i}')
+        self.Label_DataName = QLabel('Choose spectra', self.DataPanel)
+        self.Label_DataName.move(20, 40)
 
         BGSubstractionMethod = ['Shirley', 'Linear']
         self.combo_BGsubs = QComboBox(self.DataPanel)
-        self.combo_BGsubs.move(20, 180)
+        self.combo_BGsubs.move(30, 250)
+        self.combo_BGsubs.setFixedWidth(120)
         for i in BGSubstractionMethod:
             self.combo_BGsubs.addItem(i)
 
+        #スピンボックスの生成
+        for i in range(0, 2, 1):
+            self.spinDPP = QDoubleSpinBox(self.DataPanel) # DPP : Data Preparation Panel
+            self.spinDPP.setGeometry(10+140*i , 130, 130, 30)
+        self.LabelRange = QLabel('Fitting range (start, end)', self.DataPanel)
+        self.LabelRange.setGeometry(65, 105, 150, 20)
+        
         #ボタンの生成
         ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Substract']
         for i in range(len(ButtonName_Data)):
@@ -299,18 +310,18 @@ class XPS_FittingPanels(QWidget):
             self.Button_Data.index = ButtonName_Data[i]
 
             if i == 0:
-                self.Button_Data.move(20+(90*i), 110)
+                self.Button_Data.move(10+(90*i), 160)
 
             elif i == 1:
-                self.Button_Data.move(20+(90*i), 110)
+                self.Button_Data.move(10+(90*i), 160)
                 self.Button_Data.setFixedWidth(180)
 
             else:
-                self.Button_Data.move(110, 180)
+                self.Button_Data.move(145, 248)
 
         #各種ラベル
         self.Label_BGmethod = QLabel('<p><font size="3">Choose substraction method of background</font></p>', self.DataPanel)
-        self.Label_BGmethod.move(10, 160)
+        self.Label_BGmethod.move(10, 220)
         self.Label_BGmethod.setFixedWidth(270)
         #---------Setting for Data Panel----------
 

@@ -37,6 +37,7 @@ class Example(QMainWindow):
         self.setWindowTitle('File dialog')
         self.show()
 
+
     def DataReshape(self):
         # 第二引数はダイアログのタイトル、第三引数は表示するパス
         fname = QFileDialog.getOpenFileName(self, 'Open file', '/home')
@@ -44,40 +45,45 @@ class Example(QMainWindow):
         # fname[0]は選択したファイルのパス（ファイル名を含む）
         if fname[0]:
             # ファイル読み込み
-            self.f = open(fname[0], 'r')
+            f = open(fname[0], 'r')
             # テキストエディタにファイル内容書き込み
-            with self.f:
-                self.data = self.f.read()
-                #self.textEdit.setText(data)
+            with f:
+                self.data = f.read()
         
         LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'
         LO_colon = [i.start() for i in re.finditer(':', self.data)] #Location of ':' (colon)
         len_Data = len(self.data) #Length of data as nomber of characters
-        SpectraName = [self.data[LO_Dataset[i][1]+1 : LO_colon[i]] for i in range(len(LO_colon))]
+        SpectraName = [self.data[LO_Dataset[i][1]+1 : LO_colon[i]] for i in range(len(LO_colon))] #Spectra name List
         
-        Dict_Data = {}
-        for i in range(len(LO_Dataset)):
-            if i+1 < len(LO_Dataset):
-                Div_data = self.data[LO_Dataset[i][0] : LO_Dataset[i+1][0]]
+        if len(LO_Dataset) != 1:
+            #--------ファイル分割処理---------
+            Dict_Data = {} #分割したテキストデータを管理する辞書
+            for i in range(len(LO_Dataset)):
+                if i+1 < len(LO_Dataset):
+                    Div_data = self.data[LO_Dataset[i][0] : LO_Dataset[i+1][0]]
 
-            elif i+1 == len(LO_Dataset):
-                Div_data = self.data[LO_Dataset[i][0] : len_Data]
+                elif i+1 == len(LO_Dataset):
+                    Div_data = self.data[LO_Dataset[i][0] : len_Data]
             
-            Dict_Data[SpectraName[i]] = Div_data
+                Dict_Data[SpectraName[i]] = Div_data #辞書に分割したテキストデータを追加
 
-        LO_SlashinPath = fname[0].rfind('/')
-        PrefixDir = fname[0][0 : LO_SlashinPath]
-        Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName]
+            LO_SlashinPath = fname[0].rfind('/')
+            PrefixDir = fname[0][0 : LO_SlashinPath]
+            Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName] #分割したテキストデータのファイルパスのリスト
 
-        Dict_DF = {}
-        for i in range(len(Div_DataFilePath)):
-            with open(Div_DataFilePath[i], mode = 'w') as f:
-                f.write(Dict_Data[SpectraName[i]])
+            Dict_DF = {} #分割したテキストデータをDataframeとして読み込み、管理する辞書
+            for i in range(len(Div_DataFilePath)):
+                with open(Div_DataFilePath[i], mode = 'w') as f:
+                    f.write(Dict_Data[SpectraName[i]])
 
-            dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = "\t")
+                dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = '\t') #分割したテキストデータをDataframeとして読み込み
+                Dict_DF[SpectraName[i]] = dataset #辞書に読み込んだDataframeを追加
+            #------------ファイル分割処理--------------
+
+        else:
+            Dict_DF = {}
+            dataset = pd.read_csv(fname[0], header = 3, delimiter = '\t')
             Dict_DF[SpectraName[i]] = dataset
-
-        print(Dict_DF[SpectraName[2]])
 
     def fileDialog(self):
         # 第二引数はダイアログのタイトル、第三引数は表示するパス
