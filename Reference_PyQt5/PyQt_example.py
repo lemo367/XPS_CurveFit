@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (QMainWindow, QTextEdit, 
     QAction, QFileDialog, QApplication)
+import pandas as pd
 
 
 # テキストフォーム中心の画面のためQMainWindowを継承する
@@ -24,7 +25,7 @@ class Example(QMainWindow):
         openFile.setShortcut('Ctrl+O')
         # ステータスバー設定
         openFile.setStatusTip('Open new File')
-        openFile.triggered.connect(self.showDialog)
+        openFile.triggered.connect(self.fileDialog)
 
         # メニューバー作成
         menubar = self.menuBar()
@@ -36,7 +37,7 @@ class Example(QMainWindow):
         self.show()
 
 
-    def showDialog(self):
+    """def showDialog(self):
 
         # 第二引数はダイアログのタイトル、第三引数は表示するパス
         fname = QFileDialog.getOpenFileName(self, 'Open file', '/home')
@@ -49,7 +50,16 @@ class Example(QMainWindow):
             # テキストエディタにファイル内容書き込み
             with f:
                 data = f.read()
-                self.textEdit.setText(data)        
+                self.textEdit.setText(data)"""
+
+    def fileDialog(self):
+        # 第二引数はダイアログのタイトル、第三引数は表示するパス
+            fPath = QFileDialog.getOpenFileName(self, 'Open file', '/home')
+
+        # fname[0]は選択したファイルのパス（ファイル名を含む）
+            if fPath[0]:
+                dataset = pd.read_csv(fPath[0], header = 3, delimiter = r"\t")
+                self.textEdit.setText(str(dataset))        
 
 if __name__ == '__main__':
 
