@@ -83,6 +83,7 @@ class MainWindow(QMainWindow):
 #-----------END class Main Window------------------
 
 
+#----------データの読み込みに関するクラス-----------
 class FileLoader(QWidget):
     XPS_Dict_DF = {} #分割したXPSテキストデータをDataframeとして読み込み、管理する辞書
 
@@ -308,6 +309,7 @@ class XPS_FittingPanels(QWidget):
         for i in range(len(ButtonName_Data)):
             self.Button_Data = QPushButton(ButtonName_Data[i], self.DataPanel)
             self.Button_Data.index = ButtonName_Data[i]
+            self.Button_Data.clicked.connect(self.XPSPlot_DPP)
 
             if i == 0:
                 self.Button_Data.move(10+(90*i), 160)
@@ -367,6 +369,31 @@ class XPS_FittingPanels(QWidget):
         self.widget.setLayout(self.layout)
         self.PlotPanel.setWidget(self.widget)
         #---------Setting for Plot Panel------------
+
+    def XPSPlot_DPP(self):
+        plot = PlotData()
+        plot.XPSPlot_DPP()
+
+
+class PlotData(QWidget):
+    def __init__(self) -> None:
+        pass
+
+    def XPSPlot_DPP(self):
+        XPS_Panels = XPS_FittingPanels()
+        Button = XPS_Panels.sender()
+        loader = FileLoader()
+
+        if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
+            DataKey = XPS_Panels.combo_DataName.currentText()
+
+            XPS_Panels.ax.cla()
+            XPS_Panels.ax.plot(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'], loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
+            XPS_Panels.canvas.draw()
+            print(DataKey)
+
+        else:
+            print(Button.text())
 
 
 #実行部
