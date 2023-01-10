@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
         Menu_XRD = toolbar.addMenu("&XRD") #XRDのプロットに関するツールを実装予定, 一番は極点図, omega-2thetaは汎用プロット機能が実装できればそれでよい
         Menu_XRD.addAction(XRD_PoleFigure)
 
-        self.setGeometry(0, 0, 1600, 1200) #Main Windowのサイズ, (x, y, width, height)
+        self.setGeometry(0, 0, 960, 720) #Main Windowのサイズ, (x, y, width, height)
         self.setWindowTitle('Main Window') #Main Windowのタイトル
         self.show() #Main Windowの表示
 
@@ -285,6 +285,9 @@ class XPS_FittingPanels(QWidget):
         self.combo_DataName = QComboBox(self.DataPanel)
         self.combo_DataName.move(120, 43)
         self.combo_DataName.setFixedWidth(120)
+        self.combo_DataName.activated.connect(self.activated)
+        self.combo_DataName.currentTextChanged.connect(self.text_changed)
+        self.combo_DataName.currentIndexChanged.connect(self.index_changed)
         for i in SpectraName:
             self.combo_DataName.addItem(f'{i}')
         self.Label_DataName = QLabel('Choose spectra', self.DataPanel)
@@ -335,8 +338,8 @@ class XPS_FittingPanels(QWidget):
         config = {
             "xtick.direction": "in",
             "ytick.direction": "in",
-            "xtick.major.width": 1.5,
-            "ytick.major.width": 1.5,
+            "xtick.major.width": 1.0,
+            "ytick.major.width": 1.0,
             "xtick.minor.width": 1.0,
             "ytick.minor.width": 1.0,
             "xtick.major.size": 5.0,
@@ -371,29 +374,34 @@ class XPS_FittingPanels(QWidget):
         #---------Setting for Plot Panel------------
 
     def XPSPlot_DPP(self):
-        plot = PlotData()
-        plot.XPSPlot_DPP()
-
-
-class PlotData(QWidget):
-    def __init__(self) -> None:
-        pass
-
-    def XPSPlot_DPP(self):
-        XPS_Panels = XPS_FittingPanels()
-        Button = XPS_Panels.sender()
+        Object = self.sender()
         loader = FileLoader()
 
-        if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
-            DataKey = XPS_Panels.combo_DataName.currentText()
+        if Object.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
+            DataKey = self.combo_DataName.currentText()
 
-            XPS_Panels.ax.cla()
-            XPS_Panels.ax.plot(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'], loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
-            XPS_Panels.canvas.draw()
+            self.ax.cla()
+            self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+            self.ax.invert_xaxis()
+            self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
+            self.ax.minorticks_on()
+            self.ax.set_yticks([])
+            self.ax.plot(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'], loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
+            self.canvas.draw()
             print(DataKey)
+            print(Object.text())
 
         else:
-            print(Button.text())
+            print(Object.text())
+
+    def activated(Self, index):
+        print("Activated index:", index)
+
+    def text_changed(self, s):
+        print("Text changed:", s)
+
+    def index_changed(self, index):
+        print("Index changed", index)
 
 
 #実行部
