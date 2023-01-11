@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
+import numpy as np
 
 #Definition of Main window
 class MainWindow(QMainWindow):
@@ -55,7 +56,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Main Window') #Main Windowのタイトル
         self.show() #Main Windowの表示
 
-
     def fileDialog(self):
         # 第二引数はダイアログのタイトル、第三引数は表示するパス
         fPath = QFileDialog.getOpenFileName(self, 'Open file', '/home', '*csv')
@@ -64,22 +64,20 @@ class MainWindow(QMainWindow):
         if fPath[0]:
             dataset = pd.read_csv(fPath[0], header = 32)
 
-
     #XPSのデータを読み込むメソッド, 複数のデータの分割にも対応
     def XPS_DataReshape(self):
         loader = FileLoader()
         loader.XPS_DataReshape()
 
-
     #XPSのfittingに際して使用する各種windowの表示を行うメソッド
     def show_XPSpanel(self):
         self.XPS = XPS_FittingPanels()
-        self.mdi.addSubWindow(self.XPS.FitPanel)
-        self.mdi.addSubWindow(self.XPS.DataPanel)
         self.mdi.addSubWindow(self.XPS.PlotPanel)
-        self.XPS.FitPanel.show()
-        self.XPS.DataPanel.show()
         self.XPS.PlotPanel.show()
+        self.mdi.addSubWindow(self.XPS.DataPanel)
+        self.XPS.DataPanel.show()
+        self.mdi.addSubWindow(self.XPS.FitPanel)
+        self.XPS.FitPanel.show()
 #-----------END class Main Window------------------
 
 
@@ -139,6 +137,8 @@ class FileLoader(QWidget):
 
 #XPSのfittingに際して使用するwindow類の定義クラス
 class XPS_FittingPanels(QWidget):
+    gco = None
+
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -371,14 +371,25 @@ class XPS_FittingPanels(QWidget):
         self.widget = QWidget()
         self.widget.setLayout(self.layout)
         self.PlotPanel.setWidget(self.widget)
+
+        self.Fit_s = self.ax.plot(0, 0, 'v', picker = 10)
+        self.Fit_e = self.ax.plot(1, 0, '^', picker = 10)
+
+        self.fig.canvas.mpl_connect('motion_notify_event', self.motion)
+        self.fig.canvas.mpl_connect('pick_event', self.onpick)
+        self.fig.canvas.mpl_connect('button_release_event', self.release)
+
+        self.canvas.draw()
         #---------Setting for Plot Panel------------
 
     def XPSPlot_DPP(self):
-        Object = self.sender()
+        Button = self.sender()
         loader = FileLoader()
 
-        if Object.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
+        if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
             DataKey = self.combo_DataName.currentText()
+            BindingEnergy = loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)']
+            Intensity = loader.XPS_Dict_DF[DataKey]['Intensity(cps)']
 
             self.ax.cla()
             self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
@@ -386,13 +397,48 @@ class XPS_FittingPanels(QWidget):
             self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
             self.ax.minorticks_on()
             self.ax.set_yticks([])
+            
+            self.Fit_s = self.ax.plot(BindingEnergy[0], Intensity[0], 'v', c = 'red', picker = 10)
+            self.Fit_e = self.ax.plot(BindingEnergy[len(BindingEnergy)-1], Intensity[len(Intensity)-1], '^', c = 'orange', picker = 10)
             self.ax.plot(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'], loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
             self.canvas.draw()
             print(DataKey)
-            print(Object.text())
+            print(Button.text())
+
+        elif Button.text() == 'Make Processed Wave' and loader.XPS_Dict_DF != {}:
+            DataKey = self.combo_DataName.currentText()
+            BindingEnergy = loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)']
+            Intensity = loader.XPS_Dict_DF[DataKey]['Intensity(cps)']
+            
+            FitStart = self.Fit_s[0].get_xydata()[0][0]
+            FitEnd = self.Fit_e[0].get_xydata()[0][0]
+            list_idxSE = [np.abs(np.array(BindingEnergy) - FitStart).argmin(), np.abs(np.array(BindingEnergy) - FitEnd).argmin()] #[Start, End]の順で格納、FitStartおよびEndと最も近い値のindexをDataFrameから取得する
+            
+            df_processed = pd.DataFrame({'Binding Energy(eV)': np.array(BindingEnergy[list_idxSE[0]:list_idxSE[1]]), 'Intensity(cps)': np.array(Intensity[list_idxSE[0]:list_idxSE[1]])})
+            loader.XPS_Dict_DF[f'{DataKey}_proc'] = df_processed
+            
+            self.combo_DataName.clear()
+            SpectraName = list(loader.XPS_Dict_DF.keys())
+            for i in SpectraName:
+                self.combo_DataName.addItem(f'{i}')
+            print(loader.XPS_Dict_DF)
 
         else:
-            print(Object.text())
+            return
+
+    def motion(self, event):
+        if self.gco == None:
+            return
+        x = event.xdata
+        y = event.ydata
+        self.gco.set_data(x,y)
+        self.canvas.draw()
+
+    def onpick(self, event):
+        self.gco = event.artist
+
+    def release(self, event):
+        self.gco = None
 
     def activated(Self, index):
         print("Activated index:", index)
