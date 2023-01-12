@@ -53,7 +53,7 @@ class MainWindow(QMainWindow):
         Menu_XRD = toolbar.addMenu("&XRD") #XRDのプロットに関するツールを実装予定, 一番は極点図, omega-2thetaは汎用プロット機能が実装できればそれでよい
         Menu_XRD.addAction(XRD_PoleFigure)
 
-        self.setGeometry(0, 0, 960, 720) #Main Windowのサイズ, (x, y, width, height)
+        self.setGeometry(0, 0, 1280, 800) #Main Windowのサイズ, (x, y, width, height)
         self.setWindowTitle('Main Window') #Main Windowのタイトル
         self.show() #Main Windowの表示
 
@@ -286,9 +286,9 @@ class XPS_FittingPanels(QWidget):
         self.combo_DataName = QComboBox(self.DataPanel)
         self.combo_DataName.move(120, 43)
         self.combo_DataName.setFixedWidth(120)
-        self.combo_DataName.activated.connect(self.activated)
-        self.combo_DataName.currentTextChanged.connect(self.text_changed)
-        self.combo_DataName.currentIndexChanged.connect(self.index_changed)
+        #self.combo_DataName.activated.connect(self.activated)
+        #self.combo_DataName.currentTextChanged.connect(self.text_changed)
+        #self.combo_DataName.currentIndexChanged.connect(self.index_changed)
         for i in SpectraName:
             self.combo_DataName.addItem(f'{i}')
         self.Label_DataName = QLabel('Choose spectra', self.DataPanel)
@@ -388,8 +388,9 @@ class XPS_FittingPanels(QWidget):
         loader = FileLoader()
 
         DataKey = self.combo_DataName.currentText()
-        BindingEnergy = np.array(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'])
-        Intensity = np.array(loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
+        if DataKey != '':
+            BindingEnergy = np.array(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'])
+            Intensity = np.array(loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
 
         if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
             self.ax.cla()
@@ -403,8 +404,6 @@ class XPS_FittingPanels(QWidget):
             self.Fit_e = self.ax.plot(BindingEnergy[-1], Intensity[-1], '^', c = 'orange', picker = 10)
             Spectrum = self.ax.plot(BindingEnergy, Intensity)
             self.canvas.draw()
-            #print(DataKey)
-            #print(Button.text())
 
         elif Button.text() == 'Make Processed Wave' and loader.XPS_Dict_DF != {}:
             FitStart = self.Fit_s[0].get_xydata()[0][0]
@@ -418,7 +417,6 @@ class XPS_FittingPanels(QWidget):
             SpectraName = list(loader.XPS_Dict_DF.keys())
             for i in SpectraName:
                 self.combo_DataName.addItem(f'{i}')
-            #print(loader.XPS_Dict_DF)
 
         elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
             SubMethod = self.combo_BGsubs.currentText()
@@ -458,13 +456,31 @@ class XPS_FittingPanels(QWidget):
                     
                 BackGround = self.ax.plot(x, B_x)
                 self.canvas.draw()
-                print(SpectraArea_p, SpectraArea, Resid_Area, count)
+                #print(SpectraArea_p, SpectraArea, Resid_Area, count)
 
+            
+            elif SubMethod == 'Linear' and '_proc' in DataKey:
+                x_1, y_1 = BindingEnergy[0], Intensity[0]
+                x_2, y_2 = BindingEnergy[-1], Intensity[-1]
+                matrix_coef = np.array([[x_1, 1], [x_2, 1]])
+                matrix_y = np.array([y_1, y_2])
+                Slope_Intercept = np.linalg.solve(matrix_coef, matrix_y)
+                a, b = Slope_Intercept[0], Slope_Intercept[1]
+
+                BackGround = self.ax.plot(BindingEnergy, a*BindingEnergy+b)
+                self.canvas.draw()
+                #print(Slope_Intercept)
+            
             else:
                 return
 
-        else:
-            return
+    def XPSFit_FP(self):
+        Button = self.sender()
+        loader = FileLoader()
+
+        DataKey =  self.combo_SpectraName.currentText()
+
+        pass
 
     def motion(self, event):
         if self.gco == None:
@@ -480,14 +496,14 @@ class XPS_FittingPanels(QWidget):
     def release(self, event):
         self.gco = None
 
-    def activated(Self, index):
-        print("Activated index:", index)
+    #def activated(Self, index):
+        #print("Activated index:", index)
 
-    def text_changed(self, s):
-        print("Text changed:", s)
+    #def text_changed(self, s):
+        #print("Text changed:", s)
 
-    def index_changed(self, index):
-        print("Index changed", index)
+    #def index_changed(self, index):
+        #print("Index changed", index)
 
 
 #実行部
