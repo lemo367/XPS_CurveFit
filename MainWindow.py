@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 import numpy as np
+from scipy import integrate
 
 #Definition of Main window
 class MainWindow(QMainWindow):
@@ -386,11 +387,11 @@ class XPS_FittingPanels(QWidget):
         Button = self.sender()
         loader = FileLoader()
 
-        if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
-            DataKey = self.combo_DataName.currentText()
-            BindingEnergy = loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)']
-            Intensity = loader.XPS_Dict_DF[DataKey]['Intensity(cps)']
+        DataKey = self.combo_DataName.currentText()
+        BindingEnergy = np.array(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'])
+        Intensity = np.array(loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
 
+        if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
             self.ax.cla()
             self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
             self.ax.invert_xaxis()
@@ -399,29 +400,68 @@ class XPS_FittingPanels(QWidget):
             self.ax.set_yticks([])
             
             self.Fit_s = self.ax.plot(BindingEnergy[0], Intensity[0], 'v', c = 'red', picker = 10)
-            self.Fit_e = self.ax.plot(BindingEnergy[len(BindingEnergy)-1], Intensity[len(Intensity)-1], '^', c = 'orange', picker = 10)
-            self.ax.plot(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'], loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
+            self.Fit_e = self.ax.plot(BindingEnergy[-1], Intensity[-1], '^', c = 'orange', picker = 10)
+            Spectrum = self.ax.plot(BindingEnergy, Intensity)
             self.canvas.draw()
-            print(DataKey)
-            print(Button.text())
+            #print(DataKey)
+            #print(Button.text())
 
         elif Button.text() == 'Make Processed Wave' and loader.XPS_Dict_DF != {}:
-            DataKey = self.combo_DataName.currentText()
-            BindingEnergy = loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)']
-            Intensity = loader.XPS_Dict_DF[DataKey]['Intensity(cps)']
-            
             FitStart = self.Fit_s[0].get_xydata()[0][0]
             FitEnd = self.Fit_e[0].get_xydata()[0][0]
-            list_idxSE = [np.abs(np.array(BindingEnergy) - FitStart).argmin(), np.abs(np.array(BindingEnergy) - FitEnd).argmin()] #[Start, End]の順で格納、FitStartおよびEndと最も近い値のindexをDataFrameから取得する
+            list_idxSE = [np.abs(BindingEnergy - FitStart).argmin(), np.abs(BindingEnergy - FitEnd).argmin()] #[Start, End]の順で格納、FitStartおよびEndと最も近い値のindexをDataFrameから取得する
             
-            df_processed = pd.DataFrame({'Binding Energy(eV)': np.array(BindingEnergy[list_idxSE[0]:list_idxSE[1]]), 'Intensity(cps)': np.array(Intensity[list_idxSE[0]:list_idxSE[1]])})
+            df_processed = pd.DataFrame({'Binding Energy(eV)': BindingEnergy[list_idxSE[0]:list_idxSE[1]], 'Intensity(cps)': Intensity[list_idxSE[0]:list_idxSE[1]]})
             loader.XPS_Dict_DF[f'{DataKey}_proc'] = df_processed
             
             self.combo_DataName.clear()
             SpectraName = list(loader.XPS_Dict_DF.keys())
             for i in SpectraName:
                 self.combo_DataName.addItem(f'{i}')
-            print(loader.XPS_Dict_DF)
+            #print(loader.XPS_Dict_DF)
+
+        elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
+            SubMethod = self.combo_BGsubs.currentText()
+
+            if SubMethod == 'Shirley' and '_proc' in DataKey:
+                f_x = Intensity
+                x = BindingEnergy
+                B_init = f_x[-1]
+                k = f_x[0] - B_init
+                count = 1
+                
+                while count == 1:
+                    g_x = f_x - B_init
+                    SpectraArea_init = np.abs(integrate.trapz(g_x, x))
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
+                    count = count +1
+
+                while count == 2:
+                    B_x = k*Q/SpectraArea_init + B_init
+                    g_x = f_x - B_x
+                    SpectraArea = np.abs(integrate.trapz(g_x, x))
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
+                    Resid_Area = SpectraArea - SpectraArea_init
+                    count = count +1
+
+                while count > 2 and Resid_Area != 0:
+                    SpectraArea_p = SpectraArea
+                    B_x = k*Q/SpectraArea_p + B_init
+                    g_x = f_x - B_x
+                    SpectraArea = np.abs(integrate.trapz(g_x, x))
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
+                    Resid_Area = SpectraArea - SpectraArea_p
+                    count = count +1
+
+                if count == 3 and Resid_Area == 0:
+                    B_x = k*Q/SpectraArea + B_init
+                    
+                BackGround = self.ax.plot(x, B_x)
+                self.canvas.draw()
+                print(SpectraArea_p, SpectraArea, Resid_Area, count)
+
+            else:
+                return
 
         else:
             return
