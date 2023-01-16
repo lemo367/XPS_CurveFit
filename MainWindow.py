@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 import numpy as np
-from scipy import integrate
+from scipy import integrate, optimize
+import scipy.special
+
 
 #Definition of Main window
 class MainWindow(QMainWindow):
@@ -139,6 +141,11 @@ class FileLoader(QWidget):
 #XPSのfittingに際して使用するwindow類の定義クラス
 class XPS_FittingPanels(QWidget):
     gco = None
+    ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
+    #Dict_FitParams = {f'{i}': 0 for i in ParamName}
+    Dict_FitComps = {}
+    for i in range(1, 7, 1):
+        Dict_FitComps[f'Comp. {i}'] = {f'{j}': 0 for j in ParamName}
 
     def __init__(self):
         super().__init__()
@@ -158,8 +165,8 @@ class XPS_FittingPanels(QWidget):
         self.combo_SpectraName = QComboBox(self.FitPanel)
         self.combo_SpectraName.move(10, 30)
         self.combo_SpectraName.setFixedWidth(200)
-        for i in SpectraName:
-            self.combo_SpectraName.addItem(f"{i}") #ループでリストの中身をコンボボックスの表示値に
+        #for i in SpectraName:
+        #    self.combo_SpectraName.addItem(f"{i}") #ループでリストの中身をコンボボックスの表示値に
 
         ReltMethod = ['Method 1', 'Method 2']
         self.combo_HowRelative = QComboBox(self.FitPanel)
@@ -176,29 +183,44 @@ class XPS_FittingPanels(QWidget):
         #スピンボックスの生成
         for i in range(0, 36, 1):
             self.spinBOX = QDoubleSpinBox(self.FitPanel)
+            self.spinBOX.valueChanged.connect(self.getFitParams)
+            self.spinBOX.setDecimals(3)
+
             if i <= 5:
                 self.spinBOX.move(70+(140*i), 80)
                 self.spinBOX.index = f"B.E. {i+1}"
-            
+                self.spinBOX.setRange(0, 1500)
+                self.spinBOX.setSingleStep(0.5)
+
             elif 6 <= i <= 11:
                 self.spinBOX.move(70+(140*(i-6)), 110)
                 self.spinBOX.index = f"Int. {i-5}"
+                self.spinBOX.setRange(0, 2000000)
+                self.spinBOX.setSingleStep(100)
 
             elif 12 <= i <= 17:
                 self.spinBOX.move(70+(140*(i-12)), 140)
                 self.spinBOX.index = f"W_gau. {i-11}"
+                self.spinBOX.setRange(0, 1000)
+                self.spinBOX.setSingleStep(0.1)
 
             elif 18 <= i <= 23:
                 self.spinBOX.move(70+(140*(i-18)), 170)
                 self.spinBOX.index = f"Gamma {i-17}"
+                self.spinBOX.setRange(0, 1000)
+                self.spinBOX.setSingleStep(0.05)
 
             elif 24 <= i <= 29:
                 self.spinBOX.move(70+(140*(i-24)), 200)
                 self.spinBOX.index = f"S.O.S. {i-23}"
+                self.spinBOX.setRange(0, 100)
+                self.spinBOX.setSingleStep(0.1)
 
             elif 30 <= i <= 35:
                 self.spinBOX.move(70+(140*(i-30)), 230)
                 self.spinBOX.index = f"B.R. {i-29}"
+                self.spinBOX.setRange(0, 1)
+                self.spinBOX.setSingleStep(0.02)
 
         for i in range(0, 2, 1):
             self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
@@ -273,6 +295,7 @@ class XPS_FittingPanels(QWidget):
         for i in range(len(ButtonName_Fit)):
             self.Button_Fit = QPushButton(ButtonName_Fit[i], self.FitPanel)
             self.Button_Fit.move(250+(90*i), 30)
+            self.Button_Fit.clicked.connect(self.XPSFit_FP)
         #---------Setting for Fit Panel----------
 
 
@@ -286,9 +309,6 @@ class XPS_FittingPanels(QWidget):
         self.combo_DataName = QComboBox(self.DataPanel)
         self.combo_DataName.move(120, 43)
         self.combo_DataName.setFixedWidth(120)
-        #self.combo_DataName.activated.connect(self.activated)
-        #self.combo_DataName.currentTextChanged.connect(self.text_changed)
-        #self.combo_DataName.currentIndexChanged.connect(self.index_changed)
         for i in SpectraName:
             self.combo_DataName.addItem(f'{i}')
         self.Label_DataName = QLabel('Choose spectra', self.DataPanel)
@@ -336,6 +356,7 @@ class XPS_FittingPanels(QWidget):
         self.PlotPanel.setWindowTitle("Graph")
         self.PlotPanel.setGeometry(250, 250, 500, 500)
         
+        # グラフの初期設定値
         config = {
             "xtick.direction": "in",
             "ytick.direction": "in",
@@ -376,20 +397,21 @@ class XPS_FittingPanels(QWidget):
         self.Fit_s = self.ax.plot(0, 0, 'v', picker = 10)
         self.Fit_e = self.ax.plot(1, 0, '^', picker = 10)
 
-        self.fig.canvas.mpl_connect('motion_notify_event', self.motion)
-        self.fig.canvas.mpl_connect('pick_event', self.onpick)
-        self.fig.canvas.mpl_connect('button_release_event', self.release)
+        self.fig.canvas.mpl_connect('motion_notify_event', self.motion) #----------------------------------------------
+        self.fig.canvas.mpl_connect('pick_event', self.onpick)          #グラフキャンバス上でのカーソルアクション定義
+        self.fig.canvas.mpl_connect('button_release_event', self.release) #---------------------------------------------
 
         self.canvas.draw()
         #---------Setting for Plot Panel------------
 
+    # Data Preparation Panelからデータをプロットおよびバックグラウンド処理するためのメソッド
     def XPSPlot_DPP(self):
         Button = self.sender()
         loader = FileLoader()
 
-        DataKey = self.combo_DataName.currentText()
+        DataKey = self.combo_DataName.currentText() #選択してるスペクトルの名前を格納
         if DataKey != '':
-            BindingEnergy = np.array(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)'])
+            BindingEnergy = np.array(loader.XPS_Dict_DF[DataKey]['Binding Energy(eV)']) # loader.XPS_Dict_DFはデータの読み込み時に作成したDataframeが格納されている辞書
             Intensity = np.array(loader.XPS_Dict_DF[DataKey]['Intensity(cps)'])
 
         if Button.text() == 'Draw Graph' and loader.XPS_Dict_DF != {}:
@@ -398,25 +420,27 @@ class XPS_FittingPanels(QWidget):
             self.ax.invert_xaxis()
             self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
             self.ax.minorticks_on()
-            self.ax.set_yticks([])
+            #self.ax.set_yticks([])
             
-            self.Fit_s = self.ax.plot(BindingEnergy[0], Intensity[0], 'v', c = 'red', picker = 10)
-            self.Fit_e = self.ax.plot(BindingEnergy[-1], Intensity[-1], '^', c = 'orange', picker = 10)
+            self.Fit_s = self.ax.plot(BindingEnergy[0], Intensity[0], 'v', c = 'red', picker = 10) # fittingの範囲を切り出すためのドット
+            self.Fit_e = self.ax.plot(BindingEnergy[-1], Intensity[-1], '^', c = 'orange', picker = 10) # 同上
             Spectrum = self.ax.plot(BindingEnergy, Intensity)
             self.canvas.draw()
 
         elif Button.text() == 'Make Processed Wave' and loader.XPS_Dict_DF != {}:
-            FitStart = self.Fit_s[0].get_xydata()[0][0]
+            FitStart = self.Fit_s[0].get_xydata()[0][0] # fittingの範囲を切り出すためのドットのx, y座標を取得
             FitEnd = self.Fit_e[0].get_xydata()[0][0]
             list_idxSE = [np.abs(BindingEnergy - FitStart).argmin(), np.abs(BindingEnergy - FitEnd).argmin()] #[Start, End]の順で格納、FitStartおよびEndと最も近い値のindexをDataFrameから取得する
             
             df_processed = pd.DataFrame({'Binding Energy(eV)': BindingEnergy[list_idxSE[0]:list_idxSE[1]], 'Intensity(cps)': Intensity[list_idxSE[0]:list_idxSE[1]]})
-            loader.XPS_Dict_DF[f'{DataKey}_proc'] = df_processed
+            loader.XPS_Dict_DF[f'{DataKey}_proc'] = df_processed # df_processedはfittingする範囲で切り出したデータが格納されている. それを全データが格納されている辞書へ新規に書き込む
             
+            # 以下DPP上のコンボボックスの内容更新
             self.combo_DataName.clear()
             SpectraName = list(loader.XPS_Dict_DF.keys())
             for i in SpectraName:
                 self.combo_DataName.addItem(f'{i}')
+
 
         elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
             SubMethod = self.combo_BGsubs.currentText()
@@ -453,12 +477,17 @@ class XPS_FittingPanels(QWidget):
 
                 if count == 3 and Resid_Area == 0:
                     B_x = k*Q/SpectraArea + B_init
-                    
+                
+                Intensity_BG = Intensity-B_x
+                loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG
+                loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x
                 BackGround = self.ax.plot(x, B_x)
+                Signal_sub = self.ax.plot(x, Intensity_BG)
                 self.canvas.draw()
+
+                #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
                 #print(SpectraArea_p, SpectraArea, Resid_Area, count)
 
-            
             elif SubMethod == 'Linear' and '_proc' in DataKey:
                 x_1, y_1 = BindingEnergy[0], Intensity[0]
                 x_2, y_2 = BindingEnergy[-1], Intensity[-1]
@@ -466,10 +495,22 @@ class XPS_FittingPanels(QWidget):
                 matrix_y = np.array([y_1, y_2])
                 Slope_Intercept = np.linalg.solve(matrix_coef, matrix_y)
                 a, b = Slope_Intercept[0], Slope_Intercept[1]
+                B_x = a*BindingEnergy+b
 
-                BackGround = self.ax.plot(BindingEnergy, a*BindingEnergy+b)
+                Intensity_BG = Intensity-B_x
+                loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG
+                loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x
+                BackGround = self.ax.plot(BindingEnergy, B_x)
+                Signal_sub = self.ax.plot(BindingEnergy, Intensity_BG)
                 self.canvas.draw()
+
+                #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
                 #print(Slope_Intercept)
+
+            self.combo_SpectraName.clear()
+            SpectraName = list(loader.XPS_Dict_DF.keys())
+            for i in SpectraName:
+                self.combo_SpectraName.addItem(f'{i}')
             
             else:
                 return
@@ -477,10 +518,98 @@ class XPS_FittingPanels(QWidget):
     def XPSFit_FP(self):
         Button = self.sender()
         loader = FileLoader()
+        function = FittingFunctions()
 
         DataKey =  self.combo_SpectraName.currentText()
+        if DataKey != '':
+            Dict_DF = loader.XPS_Dict_DF[DataKey] #XPSのデータが格納されている辞書、呼び出されるデータはDataFrame
+            #list_DFindex = list(Dict_DF.columns)
+            BindingEnergy = np.array(Dict_DF['Binding Energy(eV)'])
+            IntensityBG = np.array(Dict_DF['IntensityBG'])
 
-        pass
+        if Button.text() == 'Open Graph' and '_proc' in DataKey:
+            self.ax.cla()
+            self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+            self.ax.invert_xaxis()
+            self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
+            self.ax.minorticks_on()
+
+            Spectrum = self.ax.plot(BindingEnergy, IntensityBG)
+            self.canvas.draw()
+            #print(list_DFindex)
+
+        elif Button.text() == 'Check' and '_proc' in DataKey:            
+            guess_init = []
+
+            for i in range(len(self.Dict_FitComps)):
+                FitComps = self.Dict_FitComps[f'Comp. {i+1}']
+                
+                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]):
+                    continue
+
+                else:
+                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName])
+            
+            if guess_init != []:
+                self.ax.cla()
+                self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+                self.ax.invert_xaxis()
+                self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
+                self.ax.minorticks_on()
+
+                Spectrum = self.ax.plot(BindingEnergy, IntensityBG)
+                Voight_ini = function.Voight(BindingEnergy, *guess_init)
+                FuncCheck = self.ax.plot(BindingEnergy, Voight_ini)
+                self.canvas.draw()
+            
+            #print(Voight_ini)
+
+        elif Button.text() == 'Fit' and '_proc' in DataKey:
+            guess_init = []
+
+            for i in range(len(self.Dict_FitComps)):
+                FitComps = self.Dict_FitComps[f'Comp. {i+1}']
+                
+                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]):
+                    continue
+
+                else:
+                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName])
+
+            popt, _ = optimize.curve_fit(function.Voight, BindingEnergy, IntensityBG, p0 = guess_init)
+            Fit = function.Voight(BindingEnergy, *popt)
+            pass
+
+    # fit panelのスピンボックスから値を取得するメソッド. スピンボックスにconnectされてる.
+    def getFitParams(self):
+        SpinBox = self.sender()
+        Index = SpinBox.index
+
+        for i in range(1, len(self.ParamName)+1, 1):
+            if f'{i}' in Index:
+                if 'B.E.' in Index:
+                    self.Dict_FitComps[f'Comp. {i}']['B.E.'] = SpinBox.value()
+
+                elif 'Int.' in Index:
+                    self.Dict_FitComps[f'Comp. {i}']['Int.'] = SpinBox.value()
+
+                elif 'W_gau.' in Index:
+                    self.Dict_FitComps[f'Comp. {i}']['Wid_G'] = SpinBox.value()
+
+                elif 'Gamma' in Index:
+                    self.Dict_FitComps[f'Comp. {i}']['gamma'] = SpinBox.value()
+
+                elif 'S.O.S.' in Index:
+                    self.Dict_FitComps[f'Comp. {i}']['S.O.S.'] = SpinBox.value()
+
+                elif 'B.R.' in Index:
+                    self.Dict_FitComps[f'Comp. {i}']['B.R.'] = SpinBox.value()
+
+            else:
+                continue
+
+        #print(Index)
+        #print(self.Dict_FitComps)
 
     def motion(self, event):
         if self.gco == None:
@@ -496,14 +625,31 @@ class XPS_FittingPanels(QWidget):
     def release(self, event):
         self.gco = None
 
-    #def activated(Self, index):
-        #print("Activated index:", index)
+# Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoight functionを実装. 今後関数を増やすことも検討
+class FittingFunctions():
+    def __init__(self) -> None:
+        pass
 
-    #def text_changed(self, s):
-        #print("Text changed:", s)
+    def Voight(self, x, *params): # Voight function, Faddeeva functionの実部を取ることで定義
+        N_func = len(params)
 
-    #def index_changed(self, index):
-        #print("Index changed", index)
+        y_V = np.zeros_like(x)
+        for i in range(0, N_func, 1):    
+            BE = params[i][0] # ピーク位置
+            I = params[i][1] # ピーク強度
+            W_G = params[i][2] # ガウシアン成分の幅
+            gamma = params[i][3] # ガンマパラメータ. ローレンチアンの幅(比率)を決める
+            SOS = params[i][4] # Spin-Orbit splitting. スピン軌道相互作用によるピーク分裂幅を決める
+            BR = params[i][5] # Branch ratio. 方位量子数ごとに決まるピーク強度比. 例えばp軌道なら1:2の比率でピークが分裂する 
+
+            z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
+            w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
+            s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
+            t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
+            y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
+            #y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi))
+
+        return y_V
 
 
 #実行部
