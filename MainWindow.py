@@ -7,10 +7,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
+import matplotlib.cm as cm
 import numpy as np
 from scipy import integrate, optimize
 import scipy.special
-
+import itertools
 
 #Definition of Main window
 class MainWindow(QMainWindow):
@@ -141,11 +142,22 @@ class FileLoader(QWidget):
 #XPSのfittingに際して使用するwindow類の定義クラス
 class XPS_FittingPanels(QWidget):
     gco = None
+
     ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
-    #Dict_FitParams = {f'{i}': 0 for i in ParamName}
     Dict_FitComps = {}
+    Dict_CheckState = {}
+
+    BindIndex = []
+    guess_init = []
+
     for i in range(1, 7, 1):
         Dict_FitComps[f'Comp. {i}'] = {f'{j}': 0 for j in ParamName}
+        
+        if i < 5:
+            Dict_CheckState[f'Comp. {i}'] = {f'{j}': False for j in ParamName}
+        
+        else:
+            Dict_CheckState[f'Comp. {i}'] = {f'{j}': True for j in ParamName}
 
     def __init__(self):
         super().__init__()
@@ -230,6 +242,8 @@ class XPS_FittingPanels(QWidget):
         #チェックボックスの生成
         for i in range(0, 36, 1):
             self.CheckBox = QCheckBox(self.FitPanel)
+            self.CheckBox.stateChanged.connect(self.getCheckState)
+
             if i <= 5:
                 self.CheckBox.move(180+(140*i), 80)
                 self.CheckBox.index = f"Check_B.E. {i+1}"
@@ -249,10 +263,12 @@ class XPS_FittingPanels(QWidget):
             elif 24 <= i <= 29:
                 self.CheckBox.move(180+(140*(i-24)), 200)
                 self.CheckBox.index = f"Check_S.O.S. {i-23}"
+                self.CheckBox.setChecked(True)
 
             elif 30 <= i <= 35:
                 self.CheckBox.move(180+(140*(i-30)), 230)
                 self.CheckBox.index = f"Check_B.R. {i-29}"
+                self.CheckBox.setChecked(True)
 
         for i in range(0, 2, 1):
             self.BGcheckBOX = QCheckBox(self.FitPanel)
@@ -510,7 +526,11 @@ class XPS_FittingPanels(QWidget):
             self.combo_SpectraName.clear()
             SpectraName = list(loader.XPS_Dict_DF.keys())
             for i in SpectraName:
-                self.combo_SpectraName.addItem(f'{i}')
+                if '_proc' in i:
+                    self.combo_SpectraName.addItem(f'{i}')
+
+                else:
+                    continue
             
             else:
                 return
@@ -558,27 +578,93 @@ class XPS_FittingPanels(QWidget):
                 self.ax.minorticks_on()
 
                 Spectrum = self.ax.plot(BindingEnergy, IntensityBG)
-                Voight_ini = function.Voight(BindingEnergy, *guess_init)
-                FuncCheck = self.ax.plot(BindingEnergy, Voight_ini)
+
+                Voight_ini = function.Voight(BindingEnergy, *guess_init)[0]
+                for n, i in enumerate(Voight_ini):
+                    FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 0.8, edgecolor = cm.gist_rainbow(n/len(Voight_ini)))
+                
                 self.canvas.draw()
             
-            #print(Voight_ini)
+                #print(Voight_ini)
 
         elif Button.text() == 'Fit' and '_proc' in DataKey:
-            guess_init = []
+            limitation = [0, 1, np.inf]
+            self.guess_init.clear()
+            self.BindIndex.clear()
 
             for i in range(len(self.Dict_FitComps)):
                 FitComps = self.Dict_FitComps[f'Comp. {i+1}']
+                BindParams = self.Dict_CheckState[f'Comp. {i+1}']
                 
-                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]):
+                if all([FitComps[f'{key}'] == 0 for key in self.ParamName]):
                     continue
 
                 else:
-                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName])
+                    innerList = []
+                    for j in range(len(self.ParamName)):
+                        if BindParams[self.ParamName[j]] == False:
+                            innerList.append(FitComps[self.ParamName[j]])
 
-            popt, _ = optimize.curve_fit(function.Voight, BindingEnergy, IntensityBG, p0 = guess_init)
-            Fit = function.Voight(BindingEnergy, *popt)
-            pass
+                        elif BindParams[self.ParamName[j]] == True:
+                            self.BindIndex.append([i, j])
+
+                    self.guess_init.append(innerList)
+
+            if self.guess_init != []:
+                minimum = [] #各パラメータの下限値を格納するリスト
+                maximum = [] #各パラメータの上限値を格納するリスト
+                for i in range(len(self.guess_init)):
+                    BindParams = self.Dict_CheckState[f'Comp. {i+1}']
+
+                    for j in range(len(self.ParamName)):
+                        if BindParams[self.ParamName[j]] == True:
+                            continue
+
+                        elif BindParams[self.ParamName[j]] == False:
+                            minimum.append(limitation[0])
+                            maximum.append(limitation[2])
+
+                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] == 'B.R.':
+                            minimum.append(limitation[0])
+                            maximum.append(limitation[1])
+
+                constraint = (tuple(minimum), tuple(maximum))
+                
+                popt, _ = optimize.curve_fit(function.Voight, BindingEnergy, IntensityBG, p0 = list(itertools.chain.from_iterable(self.guess_init)), bounds = constraint, maxfev = 50000)
+            
+                L_popt = []
+                for i in range(0, int((len(popt)+len(self.BindIndex))/6), 1):
+                    p = popt.tolist()
+                    
+                    for j in self.BindIndex:
+                        s = j[0]
+                        t = j[1]
+                        st = 6*s + t
+
+                        p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]])
+
+                    q = p[6*i : 6*(i+1)]
+                    L_popt.append(q)
+
+                self.ax.cla()
+                self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+                self.ax.invert_xaxis()
+                self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
+                self.ax.minorticks_on()
+
+                Voight_comp = function.Voight(BindingEnergy, *L_popt)[0]
+                for n, i in enumerate(Voight_comp):
+                    FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 0.8, edgecolor = cm.gist_rainbow(n/len(Voight_comp)))
+
+                Fit = function.Voight(BindingEnergy, *L_popt)[1]
+
+                Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black')
+                Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5)
+
+                self.canvas.draw()
+                print(L_popt)
+                #print(function.L_params)
+
 
     # fit panelのスピンボックスから値を取得するメソッド. スピンボックスにconnectされてる.
     def getFitParams(self):
@@ -611,6 +697,36 @@ class XPS_FittingPanels(QWidget):
         #print(Index)
         #print(self.Dict_FitComps)
 
+    def getCheckState(self):
+        CheckBox = self.sender()
+        Index = CheckBox.index
+
+        for i in range(1, len(self.ParamName)+1, 1):
+            if f'{i}' in Index:
+                if 'B.E.' in Index:
+                    self.Dict_CheckState[f'Comp. {i}']['B.E.'] = CheckBox.isChecked()
+
+                elif 'Int.' in Index:
+                    self.Dict_CheckState[f'Comp. {i}']['Int.'] = CheckBox.isChecked()
+
+                elif 'W_gau.' in Index:
+                    self.Dict_CheckState[f'Comp. {i}']['Wid_G'] = CheckBox.isChecked()
+
+                elif 'Gamma' in Index:
+                    self.Dict_CheckState[f'Comp. {i}']['gamma'] = CheckBox.isChecked()
+
+                elif 'S.O.S.' in Index:
+                    self.Dict_CheckState[f'Comp. {i}']['S.O.S.'] = CheckBox.isChecked()
+
+                elif 'B.R.' in Index:
+                    self.Dict_CheckState[f'Comp. {i}']['B.R.'] = CheckBox.isChecked()
+
+            else:
+                continue
+
+        #print(Index)
+        #print(self.Dict_CheckState)
+
     def motion(self, event):
         if self.gco == None:
             return
@@ -625,31 +741,79 @@ class XPS_FittingPanels(QWidget):
     def release(self, event):
         self.gco = None
 
+
 # Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoight functionを実装. 今後関数を増やすことも検討
 class FittingFunctions():
+    L_params = []
+    params_mod = []
+    
     def __init__(self) -> None:
         pass
 
     def Voight(self, x, *params): # Voight function, Faddeeva functionの実部を取ることで定義
-        N_func = len(params)
+        # pythonでは*付きの変数はtupleとして認識されるため、その中の1つ目の要素がlist型か否かで分岐処理.
+        # tuple(list[])で入力した場合は各成分を独立に格納したlist[NDarray, NDarray, ...]を返す. tuple(not list, i.e., float)で入力した場合はすべての成分の和を格納したNDarrayを返す.
+        if type(params[0]) is list:
+            N_func = len(params)
+            
+            list_y_V = []
+            y_Vtotal = np.zeros_like(x)
+            for i in range(0, N_func, 1):    
+                y_V = np.zeros_like(x)
 
-        y_V = np.zeros_like(x)
-        for i in range(0, N_func, 1):    
-            BE = params[i][0] # ピーク位置
-            I = params[i][1] # ピーク強度
-            W_G = params[i][2] # ガウシアン成分の幅
-            gamma = params[i][3] # ガンマパラメータ. ローレンチアンの幅(比率)を決める
-            SOS = params[i][4] # Spin-Orbit splitting. スピン軌道相互作用によるピーク分裂幅を決める
-            BR = params[i][5] # Branch ratio. 方位量子数ごとに決まるピーク強度比. 例えばp軌道なら1:2の比率でピークが分裂する 
+                BE = params[i][0] # ピーク位置
+                I = params[i][1] # ピーク強度
+                W_G = params[i][2] # ガウシアン成分の幅
+                gamma = params[i][3] # ガンマパラメータ. ローレンチアンの幅(比率)を決める
+                SOS = params[i][4] # Spin-Orbit splitting. スピン軌道相互作用によるピーク分裂幅を決める
+                BR = params[i][5] # Branch ratio. 方位量子数ごとに決まるピーク強度比. 例えば理想的にはp軌道なら1:2の強度比でピークが分裂する 
 
-            z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
-            w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
-            s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
-            t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
-            y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
-            #y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi))
+                z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
+                w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
+                s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
+                t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
+                y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
+                
+                y_Vtotal = y_Vtotal + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
+                list_y_V.append(y_V)
+            
+            return [list_y_V, y_Vtotal]
 
-        return y_V
+
+        elif type(params[0]) is not list:
+            XPS_FP = XPS_FittingPanels()
+            counts = len(XPS_FP.BindIndex)
+
+            N_func = int((len(params)+counts)/6)
+            
+            params_mod = list(params)
+            for i in XPS_FP.BindIndex:
+                s = i[0]
+                t = i[1]
+                st = 6*s + t
+
+                params_mod.insert(st, XPS_FP.Dict_FitComps[f'Comp. {s+1}'][XPS_FP.ParamName[t]])
+
+            L_params = []
+            y_V = np.zeros_like(x)
+            for i in range(0, N_func, 1):
+                p = params_mod[6*i : 6*(i+1)]
+                L_params.append(p)
+
+                BE = L_params[i][0] # ピーク位置
+                I = L_params[i][1] # ピーク強度
+                W_G = L_params[i][2] # ガウシアン成分の幅
+                gamma = L_params[i][3] # ガンマパラメータ. ローレンチアンの幅(比率)を決める
+                SOS = L_params[i][4] # Spin-Orbit splitting. スピン軌道相互作用によるピーク分裂幅を決める
+                BR = L_params[i][5] # Branch ratio. 方位量子数ごとに決まるピーク強度比. 例えば理想的にはp軌道なら1:2の強度比でピークが分裂する 
+
+                z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
+                w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
+                s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
+                t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
+                y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
+        
+            return y_V
 
 
 #実行部
