@@ -146,9 +146,10 @@ class XPS_FittingPanels(QWidget):
     ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
     Dict_FitComps = {}
     Dict_CheckState = {}
-
     BindIndex = []
     guess_init = []
+    AbsorRel = ''
+    RelMethod = ''
 
     for i in range(1, 7, 1):
         Dict_FitComps[f'Comp. {i}'] = {f'{j}': 0 for j in ParamName}
@@ -540,6 +541,9 @@ class XPS_FittingPanels(QWidget):
         loader = FileLoader()
         function = FittingFunctions()
 
+        XPS_FittingPanels.AbsorRel = self.Abs_Rel.currentText()
+        XPS_FittingPanels.RelMethod = self.combo_HowRelative.currentText()
+
         DataKey =  self.combo_SpectraName.currentText()
         if DataKey != '':
             Dict_DF = loader.XPS_Dict_DF[DataKey] #XPSのデータが格納されている辞書、呼び出されるデータはDataFrame
@@ -586,6 +590,7 @@ class XPS_FittingPanels(QWidget):
                 self.canvas.draw()
             
                 #print(Voight_ini)
+                #print(self.AbsorRel, self.RelMethod)
 
         elif Button.text() == 'Fit' and '_proc' in DataKey:
             limitation = [0, 1, np.inf]
@@ -620,7 +625,7 @@ class XPS_FittingPanels(QWidget):
                         if BindParams[self.ParamName[j]] == True:
                             continue
 
-                        elif BindParams[self.ParamName[j]] == False:
+                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] != 'B.R.':
                             minimum.append(limitation[0])
                             maximum.append(limitation[2])
 
@@ -744,15 +749,17 @@ class XPS_FittingPanels(QWidget):
 
 # Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoight functionを実装. 今後関数を増やすことも検討
 class FittingFunctions():
-    L_params = []
-    params_mod = []
-    
+
     def __init__(self) -> None:
         pass
 
     def Voight(self, x, *params): # Voight function, Faddeeva functionの実部を取ることで定義
         # pythonでは*付きの変数はtupleとして認識されるため、その中の1つ目の要素がlist型か否かで分岐処理.
-        # tuple(list[])で入力した場合は各成分を独立に格納したlist[NDarray, NDarray, ...]を返す. tuple(not list, i.e., float)で入力した場合はすべての成分の和を格納したNDarrayを返す.
+        # tuple(list[])で入力した場合は各成分を独立に格納したlist[NDarray, NDarray, ...]と各成分の和(NDarray)を返す. tuple(not list, e.g., float)で入力した場合はすべての成分の和を格納したNDarrayを返す.
+        XPS_FP = XPS_FittingPanels()
+        AbsorRel = XPS_FP.AbsorRel
+        RelMethod = XPS_FP.RelMethod
+
         if type(params[0]) is list:
             N_func = len(params)
             
@@ -761,12 +768,28 @@ class FittingFunctions():
             for i in range(0, N_func, 1):    
                 y_V = np.zeros_like(x)
 
-                BE = params[i][0] # ピーク位置
+                if AbsorRel == 'Absol.':
+                    BE = params[i][0] # ピーク位置
+
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1':
+                    if i == 0:
+                        BE = params[i][0]
+
+                    elif i > 0:
+                        BE = params[0][0] + params[i][0]
+
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2':
+                    if i%2 == 0:
+                        BE = params[i][0]
+
+                    elif i%2 == 1:
+                        BE = params[i-1][0] + params[i][0]
+                
                 I = params[i][1] # ピーク強度
                 W_G = params[i][2] # ガウシアン成分の幅
                 gamma = params[i][3] # ガンマパラメータ. ローレンチアンの幅(比率)を決める
                 SOS = params[i][4] # Spin-Orbit splitting. スピン軌道相互作用によるピーク分裂幅を決める
-                BR = params[i][5] # Branch ratio. 方位量子数ごとに決まるピーク強度比. 例えば理想的にはp軌道なら1:2の強度比でピークが分裂する 
+                BR = params[i][5] # Branch ratio. 方位量子数ごとに決まるピーク強度比. 例えば理想的にはp軌道なら1:2の強度比でピークが分裂する
 
                 z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
                 w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
@@ -776,12 +799,11 @@ class FittingFunctions():
                 
                 y_Vtotal = y_Vtotal + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
                 list_y_V.append(y_V)
-            
+
             return [list_y_V, y_Vtotal]
 
 
         elif type(params[0]) is not list:
-            XPS_FP = XPS_FittingPanels()
             counts = len(XPS_FP.BindIndex)
 
             N_func = int((len(params)+counts)/6)
@@ -800,7 +822,23 @@ class FittingFunctions():
                 p = params_mod[6*i : 6*(i+1)]
                 L_params.append(p)
 
-                BE = L_params[i][0] # ピーク位置
+                if AbsorRel == 'Absol.':
+                    BE = L_params[i][0] # ピーク位置
+
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1':
+                    if i == 0:
+                        BE = L_params[i][0]
+
+                    elif i > 0:
+                        BE = L_params[0][0] + L_params[i][0]
+
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2':
+                    if i%2 == 0:
+                        BE = L_params[i][0]
+
+                    elif i%2 == 1:
+                        BE = L_params[i-1][0] + L_params[i][0]
+
                 I = L_params[i][1] # ピーク強度
                 W_G = L_params[i][2] # ガウシアン成分の幅
                 gamma = L_params[i][3] # ガンマパラメータ. ローレンチアンの幅(比率)を決める
