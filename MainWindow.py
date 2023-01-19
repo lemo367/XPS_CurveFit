@@ -583,7 +583,7 @@ class XPS_FittingPanels(QWidget):
 
                 Spectrum = self.ax.plot(BindingEnergy, IntensityBG)
 
-                Voight_ini = function.Voight(BindingEnergy, *guess_init)[0]
+                Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0]
                 for n, i in enumerate(Voight_ini):
                     FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 0.8, edgecolor = cm.gist_rainbow(n/len(Voight_ini)))
                 
@@ -635,7 +635,7 @@ class XPS_FittingPanels(QWidget):
 
                 constraint = (tuple(minimum), tuple(maximum))
                 
-                popt, _ = optimize.curve_fit(function.Voight, BindingEnergy, IntensityBG, p0 = list(itertools.chain.from_iterable(self.guess_init)), bounds = constraint, maxfev = 50000)
+                popt, _ = optimize.curve_fit(function.Voigt, BindingEnergy, IntensityBG, p0 = list(itertools.chain.from_iterable(self.guess_init)), bounds = constraint, maxfev = 50000)
             
                 L_popt = []
                 for i in range(0, int((len(popt)+len(self.BindIndex))/6), 1):
@@ -657,17 +657,23 @@ class XPS_FittingPanels(QWidget):
                 self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
                 self.ax.minorticks_on()
 
-                Voight_comp = function.Voight(BindingEnergy, *L_popt)[0]
+                Voight_comp = function.Voigt(BindingEnergy, *L_popt)[0]
                 for n, i in enumerate(Voight_comp):
                     FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 0.8, edgecolor = cm.gist_rainbow(n/len(Voight_comp)))
 
-                Fit = function.Voight(BindingEnergy, *L_popt)[1]
+                Fit = function.Voigt(BindingEnergy, *L_popt)[1]
+                PeakArea = function.Voigt(BindingEnergy, *L_popt)[2]
 
                 Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black')
                 Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5)
 
                 self.canvas.draw()
                 print(L_popt)
+
+                for i in range(len(PeakArea)):
+                    print(PeakArea[i])
+                    if i%2 == 1:
+                        print(PeakArea[i]/PeakArea[i-1])
                 #print(function.L_params)
 
 
@@ -747,13 +753,13 @@ class XPS_FittingPanels(QWidget):
         self.gco = None
 
 
-# Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoight functionを実装. 今後関数を増やすことも検討
+# Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoigt functionを実装. 今後関数を増やすことも検討
 class FittingFunctions():
 
     def __init__(self) -> None:
         pass
 
-    def Voight(self, x, *params): # Voight function, Faddeeva functionの実部を取ることで定義
+    def Voigt(self, x, *params): # Voigt function, Faddeeva functionの実部を取ることで定義
         # pythonでは*付きの変数はtupleとして認識されるため、その中の1つ目の要素がlist型か否かで分岐処理.
         # tuple(list[])で入力した場合は各成分を独立に格納したlist[NDarray, NDarray, ...]と各成分の和(NDarray)を返す. tuple(not list, e.g., float)で入力した場合はすべての成分の和を格納したNDarrayを返す.
         XPS_FP = XPS_FittingPanels()
@@ -764,6 +770,8 @@ class FittingFunctions():
             N_func = len(params)
             
             list_y_V = []
+            list_A_Vw = []
+            list_A_Vt = []
             y_Vtotal = np.zeros_like(x)
             for i in range(0, N_func, 1):    
                 y_V = np.zeros_like(x)
@@ -795,12 +803,21 @@ class FittingFunctions():
                 w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
                 s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
                 t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
-                y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
                 
-                y_Vtotal = y_Vtotal + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
-                list_y_V.append(y_V)
+                V_w = I * (w.real)/(W_G * np.sqrt(2.0*np.pi))
+                Area_V_w = np.abs(integrate.trapz(V_w, x))
 
-            return [list_y_V, y_Vtotal]
+                V_t = BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi))
+                Area_V_t = np.abs(integrate.trapz(V_t, x))
+
+                y_V = y_V + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
+                y_Vtotal = y_Vtotal + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
+
+                list_y_V.append(y_V)
+                list_A_Vw.append(Area_V_w)
+                list_A_Vt.append(Area_V_t)
+
+            return [list_y_V, y_Vtotal, list_A_Vw, list_A_Vt]
 
 
         elif type(params[0]) is not list:
