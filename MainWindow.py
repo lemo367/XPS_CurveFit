@@ -148,6 +148,7 @@ class XPS_FittingPanels(QWidget):
     Dict_CheckState = {}
     BindIndex = []
     guess_init = []
+    FitParams = []
     AbsorRel = ''
     RelMethod = ''
 
@@ -308,7 +309,7 @@ class XPS_FittingPanels(QWidget):
             self.Label_BGCoeff.move(10, 275+30*i)
 
         #ボタンの生成
-        ButtonName_Fit = ['Open Graph', 'Check', 'Fit']
+        ButtonName_Fit = ['Open Graph', 'Check', 'Fit', 'add BG']
         for i in range(len(ButtonName_Fit)):
             self.Button_Fit = QPushButton(ButtonName_Fit[i], self.FitPanel)
             self.Button_Fit.move(250+(90*i), 30)
@@ -550,6 +551,7 @@ class XPS_FittingPanels(QWidget):
             #list_DFindex = list(Dict_DF.columns)
             BindingEnergy = np.array(Dict_DF['Binding Energy(eV)'])
             IntensityBG = np.array(Dict_DF['IntensityBG'])
+            Background = np.array(Dict_DF['Background'])
 
         if Button.text() == 'Open Graph' and '_proc' in DataKey:
             self.ax.cla()
@@ -585,7 +587,7 @@ class XPS_FittingPanels(QWidget):
 
                 Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0]
                 for n, i in enumerate(Voight_ini):
-                    FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 0.8, edgecolor = cm.gist_rainbow(n/len(Voight_ini)))
+                    FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_ini)))
                 
                 self.canvas.draw()
             
@@ -636,8 +638,8 @@ class XPS_FittingPanels(QWidget):
                 constraint = (tuple(minimum), tuple(maximum))
                 
                 popt, _ = optimize.curve_fit(function.Voigt, BindingEnergy, IntensityBG, p0 = list(itertools.chain.from_iterable(self.guess_init)), bounds = constraint, maxfev = 50000)
-            
-                L_popt = []
+
+                self.FitParams.clear()
                 for i in range(0, int((len(popt)+len(self.BindIndex))/6), 1):
                     p = popt.tolist()
                     
@@ -649,7 +651,7 @@ class XPS_FittingPanels(QWidget):
                         p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]])
 
                     q = p[6*i : 6*(i+1)]
-                    L_popt.append(q)
+                    self.FitParams.append(q) # フィッティング結果をインスタンス変数へ保存
 
                 self.ax.cla()
                 self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
@@ -657,18 +659,18 @@ class XPS_FittingPanels(QWidget):
                 self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
                 self.ax.minorticks_on()
 
-                Voight_comp = function.Voigt(BindingEnergy, *L_popt)[0]
+                Voight_comp = function.Voigt(BindingEnergy, *self.FitParams)[0]
                 for n, i in enumerate(Voight_comp):
-                    FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 0.8, edgecolor = cm.gist_rainbow(n/len(Voight_comp)))
+                    FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_comp)))
 
-                Fit = function.Voigt(BindingEnergy, *L_popt)[1]
-                PeakArea = function.Voigt(BindingEnergy, *L_popt)[2]
+                Fit = function.Voigt(BindingEnergy, *self.FitParams)[1]
+                PeakArea = function.Voigt(BindingEnergy, *self.FitParams)[2]
 
                 Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black')
                 Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5)
 
                 self.canvas.draw()
-                print(L_popt)
+                print(self.FitParams)
 
                 for i in range(len(PeakArea)):
                     print(PeakArea[i])
@@ -676,6 +678,26 @@ class XPS_FittingPanels(QWidget):
                         print(PeakArea[i]/PeakArea[i-1])
                 #print(function.L_params)
 
+        elif Button.text() == 'add BG' and self.FitParams != []:
+            Iex_withBG = IntensityBG + Background # Intensity observed experimentally with Background
+            Ifit_withBG = function.Voigt(BindingEnergy, *self.FitParams)[1] + Background # Intensity fitted by Voigt function with Background
+
+            self.ax.cla()
+            self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
+            self.ax.invert_xaxis()
+            self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
+            self.ax.minorticks_on()
+            self.ax.set_yticks([])
+
+            Voight_comp = function.Voigt(BindingEnergy, *self.FitParams)[0] # The compositions of Voigt function after fitting
+            for n, i in enumerate(Voight_comp):
+                FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_comp)))
+
+            Experiment = self.ax.scatter(BindingEnergy, Iex_withBG, s = 35, facecolors = 'none', edgecolors = 'black')
+            Spectram_Fit = self.ax.plot(BindingEnergy, Ifit_withBG, c = 'red', lw = 1.5)
+            BG = self.ax.plot(BindingEnergy, Background, c = 'black', lw = 1)
+
+            self.canvas.draw()
 
     # fit panelのスピンボックスから値を取得するメソッド. スピンボックスにconnectされてる.
     def getFitParams(self):
@@ -864,9 +886,13 @@ class FittingFunctions():
 
                 z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
                 w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
+                V_w = I * (w.real)/(W_G * np.sqrt(2.0*np.pi))
+
                 s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
                 t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
-                y_V = y_V + I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) + BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionを用いたvoight関数の定義
+                V_t = BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi))
+
+                y_V = y_V + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
         
             return y_V
 
