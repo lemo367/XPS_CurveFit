@@ -1,13 +1,15 @@
 import sys
 import re
-from PyQt5.QtWidgets import (
+from PyQt5.QtWidgets import(
     QMainWindow, QAction, QFileDialog, QApplication, QMdiArea, QMdiSubWindow, QLabel,
-    QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout)
+    QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout, QHBoxLayout, QMenu, QTextEdit)
+from PyQt5.QtCore import QPoint
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 import matplotlib.cm as cm
+from matplotlib.lines import Line2D
 import numpy as np
 from scipy import integrate, optimize
 import scipy.special
@@ -372,7 +374,7 @@ class XPS_FittingPanels(QWidget):
         #---------Setting for Plot Panel----------
         self.PlotPanel = QMdiSubWindow()
         self.PlotPanel.setWindowTitle("Graph")
-        self.PlotPanel.setGeometry(250, 250, 500, 500)
+        self.PlotPanel.setGeometry(400, 400, 600, 600)
         
         # グラフの初期設定値
         config = {
@@ -405,8 +407,8 @@ class XPS_FittingPanels(QWidget):
         
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.toolbar)        
         self.layout.addWidget(self.canvas)
+        self.layout.addWidget(self.toolbar)
         
         self.widget = QWidget()
         self.widget.setLayout(self.layout)
@@ -415,9 +417,14 @@ class XPS_FittingPanels(QWidget):
         self.Fit_s = self.ax.plot(0, 0, 'v', picker = 10)
         self.Fit_e = self.ax.plot(1, 0, '^', picker = 10)
 
-        self.fig.canvas.mpl_connect('motion_notify_event', self.motion) #----------------------------------------------
-        self.fig.canvas.mpl_connect('pick_event', self.onpick)          #グラフキャンバス上でのカーソルアクション定義
-        self.fig.canvas.mpl_connect('button_release_event', self.release) #---------------------------------------------
+        self.cmenu = QMenu(self.PlotPanel)
+        annotation = self.cmenu.addAction('add annotation')
+        annotation.triggered.connect(self.MakeAnnotation)
+
+        self.canvas.mpl_connect('motion_notify_event', self.motion) #----------------------------------------------
+        self.canvas.mpl_connect('pick_event', self.onpick)          #グラフキャンバス上でのカーソルアクション定義
+        self.canvas.mpl_connect('button_release_event', self.release) #---------------------------------------------
+        self.canvas.mpl_connect('button_press_event', self.onclick)
 
         self.canvas.draw()
         #---------Setting for Plot Panel------------
@@ -461,12 +468,12 @@ class XPS_FittingPanels(QWidget):
 
 
         elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
-            SubMethod = self.combo_BGsubs.currentText()
+            SubMethod = self.combo_BGsubs.currentText() #SubMethod: Substraction Method, バックグラウンドを引く方法
 
-            if SubMethod == 'Shirley' and '_proc' in DataKey:
+            if SubMethod == 'Shirley' and '_proc' in DataKey: #Shirleyバックグラウンドを引く場合
                 f_x = Intensity
                 x = BindingEnergy
-                B_init = f_x[-1]
+                B_init = f_x[-1] #最初のバックグラウンド
                 k = f_x[0] - B_init
                 count = 1
                 
@@ -506,7 +513,7 @@ class XPS_FittingPanels(QWidget):
                 #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
                 #print(SpectraArea_p, SpectraArea, Resid_Area, count)
 
-            elif SubMethod == 'Linear' and '_proc' in DataKey:
+            elif SubMethod == 'Linear' and '_proc' in DataKey: #線形(1次関数)バックグラウンドを引く場合
                 x_1, y_1 = BindingEnergy[0], Intensity[0]
                 x_2, y_2 = BindingEnergy[-1], Intensity[-1]
                 matrix_coef = np.array([[x_1, 1], [x_2, 1]])
@@ -734,7 +741,7 @@ class XPS_FittingPanels(QWidget):
         CheckBox = self.sender()
         Index = CheckBox.index
 
-        for i in range(1, len(self.ParamName)+1, 1):
+        for i in range(1, 7, 1):
             if f'{i}' in Index:
                 if 'B.E.' in Index:
                     self.Dict_CheckState[f'Comp. {i}']['B.E.'] = CheckBox.isChecked()
@@ -769,10 +776,51 @@ class XPS_FittingPanels(QWidget):
         self.canvas.draw()
 
     def onpick(self, event):
-        self.gco = event.artist
+        if isinstance(event.artist, Line2D):
+            self.gco = event.artist
 
     def release(self, event):
         self.gco = None
+
+    def onclick(self, event):
+        if event.button == 3:
+            canvas = event.canvas
+            fig = canvas.figure
+            canvas_width, canvas_height = fig.get_size_inches()*fig.dpi
+            transform = fig.transFigure
+            x, y = event.x, event.y
+            g_pos = self.PlotPanel.mapToGlobal(self.PlotPanel.pos())
+            x_global = g_pos.x() + x
+            y_global = g_pos.y() - y + canvas_height
+
+            location = QPoint()
+            location.setX(int(x_global))
+            location.setY(int(y_global))
+
+            action = self.cmenu.exec_(location)
+
+            print(x, y, g_pos, x_global, y_global)
+
+    def MakeAnnotation(self, event):
+        g_pos = self.PlotPanel.mapToGlobal(self.PlotPanel.pos())
+        self.Widget_annotation = QWidget()
+        self.Widget_annotation.setGeometry(g_pos.x(), g_pos.y(), 400, 300)
+        self.Widget_annotation.setWindowTitle('add annotation')
+
+        TextField = QTextEdit()
+        TextField.setFixedSize(400, 150)
+        ButtonName = ['Font', 'Color', 'Done']
+        layout_button = QHBoxLayout()
+        for i in range(len(ButtonName)):
+            self.button_aanotation = QPushButton(ButtonName[i], self.Widget_annotation)
+            layout_button.addWidget(self.button_aanotation)
+
+        layout = QVBoxLayout()
+        layout.addWidget(TextField)
+        layout.addLayout(layout_button)
+        self.Widget_annotation.setLayout(layout)
+
+        self.Widget_annotation.show()
 
 
 # Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoigt functionを実装. 今後関数を増やすことも検討
