@@ -539,7 +539,7 @@ class XPS_FittingPanels(QWidget):
                 return
 
     def XPSFit_FP(self):
-        Button = self.sender()
+        Button = self.sender() #Button: sender()で押されたボタンの情報を取得する
         loader = FileLoader()
         function = FittingFunctions()
 
@@ -566,16 +566,16 @@ class XPS_FittingPanels(QWidget):
             #print(list_DFindex)
 
         elif Button.text() == 'Check' and '_proc' in DataKey:            
-            guess_init = []
+            guess_init = [] #guess_init: guess initial, パラメータの初期値を格納するリスト, クラス変数とは別なので注意
 
             for i in range(len(self.Dict_FitComps)):
-                FitComps = self.Dict_FitComps[f'Comp. {i+1}']
+                FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
                 
-                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]):
+                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
-                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName])
+                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName]) #あるVoigt関数のパラメータがすべて0でない場合、パラメータをリストに格納する
             
             if guess_init != []:
                 self.ax.cla()
@@ -584,41 +584,40 @@ class XPS_FittingPanels(QWidget):
                 self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
                 self.ax.minorticks_on()
 
-                Spectrum = self.ax.plot(BindingEnergy, IntensityBG)
+                Spectrum = self.ax.plot(BindingEnergy, IntensityBG) #Spectrum: 生データ
 
-                Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0]
+                Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0] #Voight_ini: Voight initial, パラメータ初期値を用いて生成したVoigt関数, 0番目は各voigt関数が成分ごとに格納されている
                 for n, i in enumerate(Voight_ini):
+                    #FuncCheck_fill: パラメータ初期値で生成したVoigt関数のグラフを描画
                     FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_ini)))
-                
+
                 self.canvas.draw()
-            
-                #print(Voight_ini)
-                #print(self.AbsorRel, self.RelMethod)
 
         elif Button.text() == 'Fit' and '_proc' in DataKey:
-            limitation = [0, 1, np.inf]
+            limitation = [0, 1, np.inf] #limitation: limitation of fitting, フィッティングパラメータの範囲制限値を格納
             self.guess_init.clear()
             self.BindIndex.clear()
 
             for i in range(len(self.Dict_FitComps)):
-                FitComps = self.Dict_FitComps[f'Comp. {i+1}']
-                BindParams = self.Dict_CheckState[f'Comp. {i+1}']
+                FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
+                BindParams = self.Dict_CheckState[f'Comp. {i+1}'] #BindParams: Binding Parameters, 各Voigt関数の番号をキーに辞書からパラメータのバインド状態を取り出す, リストに格納
                 
-                if all([FitComps[f'{key}'] == 0 for key in self.ParamName]):
+                if all([FitComps[f'{key}'] == 0 for key in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
-                    innerList = []
+                    innerList = [] #一時的にパラメータを格納するリスト
                     for j in range(len(self.ParamName)):
                         if BindParams[self.ParamName[j]] == False:
-                            innerList.append(FitComps[self.ParamName[j]])
+                            innerList.append(FitComps[self.ParamName[j]]) #パラメータのバインド状態がFalseの場合、パラメータをリストに格納する
 
                         elif BindParams[self.ParamName[j]] == True:
-                            self.BindIndex.append([i, j])
+                            self.BindIndex.append([i, j]) #パラメータのバインド状態がTrueの場合、パラメータのインデックスをリストに格納する, あとでパラメータの挿入に使う
 
-                    self.guess_init.append(innerList)
+                    self.guess_init.append(innerList) #すべてのパラメータをリストに格納する
 
             if self.guess_init != []:
+                #以下パラメータの種別によって制限範囲を変え、上限下限を格納したtuple(=constraint)を作成
                 minimum = [] #各パラメータの下限値を格納するリスト
                 maximum = [] #各パラメータの上限値を格納するリスト
                 for i in range(len(self.guess_init)):
@@ -628,31 +627,32 @@ class XPS_FittingPanels(QWidget):
                         if BindParams[self.ParamName[j]] == True:
                             continue
 
-                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] != 'B.R.':
-                            minimum.append(limitation[0])
-                            maximum.append(limitation[2])
+                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] != 'B.R.': #B.R.以外のパラメータの場合
+                            minimum.append(limitation[0]) #下限値は0
+                            maximum.append(limitation[2]) #上限値は無限大
 
-                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] == 'B.R.':
-                            minimum.append(limitation[0])
-                            maximum.append(limitation[1])
+                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] == 'B.R.': #B.R.の場合
+                            minimum.append(limitation[0]) #下限値は0
+                            maximum.append(limitation[1]) #上限値は1
 
-                constraint = (tuple(minimum), tuple(maximum))
+                constraint = (tuple(minimum), tuple(maximum)) #constraint: フィッティングパラメータの範囲制限値を格納
                 
+                #フィッティングを実行
                 popt, _ = optimize.curve_fit(function.Voigt, BindingEnergy, IntensityBG, p0 = list(itertools.chain.from_iterable(self.guess_init)), bounds = constraint, maxfev = 50000)
 
                 self.FitParams.clear()
                 for i in range(0, int((len(popt)+len(self.BindIndex))/6), 1):
-                    p = popt.tolist()
+                    p = popt.tolist() #フィッティングパラメータが格納されているtupleをリストに変換
                     
                     for j in self.BindIndex:
-                        s = j[0]
-                        t = j[1]
-                        st = 6*s + t
+                        s = j[0] #s: index of fitting components, Voigt関数の番号
+                        t = j[1] #t: index of fitting parameters, パラメータの番号
+                        st = 6*s + t #st: 拘束されたパラメータの挿入位置
 
-                        p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]])
+                        p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]]) #拘束されたパラメータを挿入
 
-                    q = p[6*i : 6*(i+1)]
-                    self.FitParams.append(q) # フィッティング結果をインスタンス変数へ保存
+                    q = p[6*i : 6*(i+1)] #q: 6個ごとにパラメータを取り出しリストに格納, 各Voigt関数のパラメータに分ける
+                    self.FitParams.append(q) # フィッティング結果をn*6リストの形で保存, nはVoigt関数の数
 
                 self.ax.cla()
                 self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
@@ -662,24 +662,24 @@ class XPS_FittingPanels(QWidget):
 
                 Voight_comp = function.Voigt(BindingEnergy, *self.FitParams)[0]
                 for n, i in enumerate(Voight_comp):
+                    #FitComp_fill: Fitting Components Fill, パラメータ最適化後のVoigt関数を書く成分ごとにプロット
                     FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_comp)))
 
-                Fit = function.Voigt(BindingEnergy, *self.FitParams)[1]
-                PeakArea = function.Voigt(BindingEnergy, *self.FitParams)[2]
+                Fit = function.Voigt(BindingEnergy, *self.FitParams)[1] #フィッティング結果のVoigt関数の和, 1つの関数・曲線として得られる
+                PeakArea = function.Voigt(BindingEnergy, *self.FitParams)[2] #各Voigt関数のピーク面積
 
-                Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black')
-                Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5)
+                Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black') #実験データ, 中空の円でプロット
+                Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5) #フィッティング結果のVoigt関数の和, 1つの関数・曲線としてプロット
 
                 self.canvas.draw()
-                print(self.FitParams)
+                print(self.FitParams) #フィッティング結果のパラメータを表示
 
                 for i in range(len(PeakArea)):
-                    print(PeakArea[i])
-                    if i%2 == 1:
+                    print(PeakArea[i]) #各Voigt関数のピーク面積を表示
+                    if i%2 == 1: #ピーク面積の比を表示
                         print(PeakArea[i]/PeakArea[i-1])
-                #print(function.L_params)
 
-        elif Button.text() == 'add BG' and self.FitParams != []:
+        elif Button.text() == 'add BG' and self.FitParams != []: #差し引いたバックグラウンドを戻す
             Iex_withBG = IntensityBG + Background # Intensity observed experimentally with Background
             Ifit_withBG = function.Voigt(BindingEnergy, *self.FitParams)[1] + Background # Intensity fitted by Voigt function with Background
 
@@ -694,9 +694,9 @@ class XPS_FittingPanels(QWidget):
             for n, i in enumerate(Voight_comp):
                 FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_comp)))
 
-            Experiment = self.ax.scatter(BindingEnergy, Iex_withBG, s = 35, facecolors = 'none', edgecolors = 'black')
-            Spectram_Fit = self.ax.plot(BindingEnergy, Ifit_withBG, c = 'red', lw = 1.5)
-            BG = self.ax.plot(BindingEnergy, Background, c = 'black', lw = 1)
+            Experiment = self.ax.scatter(BindingEnergy, Iex_withBG, s = 35, facecolors = 'none', edgecolors = 'black') # experimental data with Background
+            Spectram_Fit = self.ax.plot(BindingEnergy, Ifit_withBG, c = 'red', lw = 1.5) # fitting curve with Background
+            BG = self.ax.plot(BindingEnergy, Background, c = 'black', lw = 1) # Background
 
             self.canvas.draw()
 
@@ -727,10 +727,8 @@ class XPS_FittingPanels(QWidget):
 
             else:
                 continue
-
-        #print(Index)
-        #print(self.Dict_FitComps)
-
+    
+    # fit panelのチェックボックスから値を取得するメソッド. チェックボックスにconnectされてる.
     def getCheckState(self):
         CheckBox = self.sender()
         Index = CheckBox.index
@@ -757,9 +755,6 @@ class XPS_FittingPanels(QWidget):
 
             else:
                 continue
-
-        #print(Index)
-        #print(self.Dict_CheckState)
 
     def motion(self, event):
         if self.gco == None:
