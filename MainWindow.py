@@ -124,19 +124,19 @@ class FileLoader(QWidget):
             
                     Dict_Data[SpectraName[i]] = Div_data #辞書に分割したテキストデータを追加
 
-                LO_SlashinPath = fname[0].rfind('/')
-                PrefixDir = fname[0][0 : LO_SlashinPath]
+                LO_SlashinPath = fname[0].rfind('/') #ファイルパスの最後の'/'の位置
+                PrefixDir = fname[0][0 : LO_SlashinPath] #ファイルパスの最後の'/'の前までの文字列
                 Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName] #分割したテキストデータのファイルパスのリスト
 
                 for i in range(len(Div_DataFilePath)):
-                    with open(Div_DataFilePath[i], mode = 'w') as f:
-                        f.write(Dict_Data[SpectraName[i]])
+                    with open(Div_DataFilePath[i], mode = 'w') as f: #分割したテキストデータをファイルに書き込み
+                        f.write(Dict_Data[SpectraName[i]]) #辞書から分割したテキストデータを取り出し、ファイルに書き込み
 
                     dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = '\t') #分割したテキストデータをDataframeとして読み込み
                     self.XPS_Dict_DF[SpectraName[i]] = dataset #辞書に読み込んだDataframeを追加
             #------------ファイル分割処理--------------
 
-            else:
+            else: #ファイル分割がない場合
                 dataset = pd.read_csv(fname[0], header = 3, delimiter = '\t')
                 self.XPS_Dict_DF[SpectraName[0]] = dataset
 
@@ -471,56 +471,53 @@ class XPS_FittingPanels(QWidget):
             SubMethod = self.combo_BGsubs.currentText() #SubMethod: Substraction Method, バックグラウンドを引く方法
 
             if SubMethod == 'Shirley' and '_proc' in DataKey: #Shirleyバックグラウンドを引く場合
-                f_x = Intensity
-                x = BindingEnergy
+                f_x = Intensity #f_x: function of x, Intensityをf_xとして扱う
+                x = BindingEnergy #x: x-axis, BindingEnergyをxとして扱う
                 B_init = f_x[-1] #最初のバックグラウンド
-                k = f_x[0] - B_init
-                count = 1
+                k = f_x[0] - B_init #k: constant, f_xの最初の値から最後の値を引いたもの
+                count = 1 #count: counter, while文のループ回数をカウントする
                 
-                while count == 1:
-                    g_x = f_x - B_init
-                    SpectraArea_init = np.abs(integrate.trapz(g_x, x))
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
+                while count == 1: 
+                    g_x = f_x - B_init #g_x: g(x), f_xからB_initを引いたもの
+                    SpectraArea_init = np.abs(integrate.trapz(g_x, x)) #SpectraArea_init: Spectra Area Initial, スペクトル全面積の初期値
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列
                     count = count +1
 
                 while count == 2:
-                    B_x = k*Q/SpectraArea_init + B_init
-                    g_x = f_x - B_x
-                    SpectraArea = np.abs(integrate.trapz(g_x, x))
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
-                    Resid_Area = SpectraArea - SpectraArea_init
+                    B_x = k*Q/SpectraArea_init + B_init #B_x: B(x), k*Q/SpectraArea_init + B_init, Shirlyバックグラウンドの式
+                    g_x = f_x - B_x #g_x: g(x), f_xからB_xを引いたもの, 1回目のループのB_initがB_xに変わっただけ
+                    SpectraArea = np.abs(integrate.trapz(g_x, x)) #SpectraArea: Spectra Area, スペクトル全面積
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列, g_xの中身が違うだけ
+                    Resid_Area = SpectraArea - SpectraArea_init #Resid_Area: Residual Area, 前回ループとスペクトル全面積を比較して変化があるかどうかを判定する
                     count = count +1
 
-                while count > 2 and Resid_Area != 0:
-                    SpectraArea_p = SpectraArea
-                    B_x = k*Q/SpectraArea_p + B_init
+                while count > 2 and Resid_Area != 0: #Resid_Areaが0になるまでループを続ける
+                    SpectraArea_p = SpectraArea #SpectraArea_p: Spectra Area Previous, 前回ループのスペクトル全面積
+                    B_x = k*Q/SpectraArea_p + B_init #B_x: B(x), SpectraArea_pに変わっただけ
                     g_x = f_x - B_x
-                    SpectraArea = np.abs(integrate.trapz(g_x, x))
+                    SpectraArea = np.abs(integrate.trapz(g_x, x)) #SpectraArea: Spectra Area, スペクトル全面積, SpectraArea_pと違う値になる(直前のループで得られた値を更新する)
                     Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
-                    Resid_Area = SpectraArea - SpectraArea_p
+                    Resid_Area = SpectraArea - SpectraArea_p #Resid_Area: Residual Area, 前回ループとスペクトル全面積を比較して変化があるかどうかを判定する
                     count = count +1
 
-                if count == 3 and Resid_Area == 0:
+                if count == 3 and Resid_Area == 0: #ループ3回目でResid_Areaが0になった場合
                     B_x = k*Q/SpectraArea + B_init
                 
-                Intensity_BG = Intensity-B_x
-                loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG
-                loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x
+                Intensity_BG = Intensity-B_x #Intensity_BG: Intensity Background Substracted, Intensityからバックグラウンドを引いたもの
+                loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG #辞書に新たにIntensityBGというキーを作成し, その中にIntensity_BGを格納する
+                loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x #辞書に新たにBackgroundというキーを作成し, その中にB_xを格納する
                 BackGround = self.ax.plot(x, B_x)
                 Signal_sub = self.ax.plot(x, Intensity_BG)
                 self.canvas.draw()
 
-                #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
-                #print(SpectraArea_p, SpectraArea, Resid_Area, count)
-
             elif SubMethod == 'Linear' and '_proc' in DataKey: #線形(1次関数)バックグラウンドを引く場合
-                x_1, y_1 = BindingEnergy[0], Intensity[0]
-                x_2, y_2 = BindingEnergy[-1], Intensity[-1]
-                matrix_coef = np.array([[x_1, 1], [x_2, 1]])
-                matrix_y = np.array([y_1, y_2])
-                Slope_Intercept = np.linalg.solve(matrix_coef, matrix_y)
-                a, b = Slope_Intercept[0], Slope_Intercept[1]
-                B_x = a*BindingEnergy+b
+                x_1, y_1 = BindingEnergy[0], Intensity[0] #x_1, y_1: x-axis, y-axis, 範囲制限したBindingEnergyとIntensityの最初の値
+                x_2, y_2 = BindingEnergy[-1], Intensity[-1] #x_2, y_2: x-axis, y-axis, 範囲制限したBindingEnergyとIntensityの最後の値
+                matrix_coef = np.array([[x_1, 1], [x_2, 1]]) #matrix_coef: matrix coefficient, 2x2の行列
+                matrix_y = np.array([y_1, y_2]) #matrix_y: matrix y, 2x1の行列
+                Slope_Intercept = np.linalg.solve(matrix_coef, matrix_y) #Slope_Intercept: Slope and Intercept, 2x1の行列
+                a, b = Slope_Intercept[0], Slope_Intercept[1] #a, b: Slope and Intercept, 1次関数の傾きと切片
+                B_x = a*BindingEnergy+b #B_x: B(x), 1次関数の式
 
                 Intensity_BG = Intensity-B_x
                 loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG
@@ -529,13 +526,10 @@ class XPS_FittingPanels(QWidget):
                 Signal_sub = self.ax.plot(BindingEnergy, Intensity_BG)
                 self.canvas.draw()
 
-                #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
-                #print(Slope_Intercept)
-
-            self.combo_SpectraName.clear()
-            SpectraName = list(loader.XPS_Dict_DF.keys())
+            self.combo_SpectraName.clear() #コンボボックスの中身をクリアする
+            SpectraName = list(loader.XPS_Dict_DF.keys()) #SpectraName: Spectra Name, XPSのデータが格納されている辞書のキーをリストに変換する
             for i in SpectraName:
-                if '_proc' in i:
+                if '_proc' in i: #_procが含まれているキーのみをコンボボックスに追加する
                     self.combo_SpectraName.addItem(f'{i}')
 
                 else:
@@ -836,31 +830,31 @@ class FittingFunctions():
         AbsorRel = XPS_FP.AbsorRel
         RelMethod = XPS_FP.RelMethod
 
-        if type(params[0]) is list:
+        if type(params[0]) is list: # tuple(list[])で入力した場合, 各voigt関数成分を独立に格納したlist[NDarray, NDarray, ...]と各成分の和(NDarray)を返す, グラフ描画ではこちらの処理になる
             N_func = len(params)
             
-            list_y_V = []
-            list_A_Vw = []
-            list_A_Vt = []
-            y_Vtotal = np.zeros_like(x)
+            list_y_V = [] # ピーク強度格納用リスト, voigt functionを成分ごとに格納する
+            y_Vtotal = np.zeros_like(x) # ピーク強度格納用リスト, voigt functionの和を格納する
+            list_A_Vw = [] # ピーク面積格納用リスト, 分裂がある場合は強度の大きいピークの方の面積用になる
+            list_A_Vt = [] # ピーク面積格納用リスト, 分裂がある場合は強度の小さいピークの方の面積用になる
             for i in range(0, N_func, 1):    
-                y_V = np.zeros_like(x)
+                y_V = np.zeros_like(x) # 関数の初期化
 
-                if AbsorRel == 'Absol.':
+                if AbsorRel == 'Absol.': # ピーク位置:Absol.(絶対位置指定)の場合
                     BE = params[i][0] # ピーク位置
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1':
-                    if i == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1': # ピーク位置:Relat.(相対位置指定)の場合, method1: 相対位置の基準は1つ目のピークの位置
+                    if i == 0: # 1つ目のピークの場合, BEはそのまま
                         BE = params[i][0]
 
-                    elif i > 0:
+                    elif i > 0: # 2つ目以降のピークの場合, BEは1つ目のピークの位置に相対位置を足したもの
                         BE = params[0][0] + params[i][0]
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2':
-                    if i%2 == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2': # ピーク位置:Relat.(相対位置指定)の場合, method2: 相対位置の基準は奇数番ピークの位置
+                    if i%2 == 0: # 奇数番のピークの場合, BEはそのまま(Pythonのindexは0から始まるため)
                         BE = params[i][0]
 
-                    elif i%2 == 1:
+                    elif i%2 == 1: # 偶数番のピークの場合, BEは奇数番のピークの位置に相対位置を足したもの
                         BE = params[i-1][0] + params[i][0]
                 
                 I = params[i][1] # ピーク強度
@@ -871,17 +865,17 @@ class FittingFunctions():
 
                 z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
                 w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
-                s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
-                t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
+                s = (x - BE - SOS + 1j*gamma)/(W_G * np.sqrt(2.0)) # spin orbit couplingによる分裂ピーク表現用の複素変数の定義
+                t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方, spin orbit couplingによる分裂ピーク)
                 
-                V_w = I * (w.real)/(W_G * np.sqrt(2.0*np.pi))
-                Area_V_w = np.abs(integrate.trapz(V_w, x))
+                V_w = I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionの実部を使用したvoight関数の定義
+                Area_V_w = np.abs(integrate.trapz(V_w, x)) # ピークの面積を計算
 
-                V_t = BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi))
-                Area_V_t = np.abs(integrate.trapz(V_t, x))
+                V_t = BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionの実部を使用したvoight関数の定義, spin orbit couplingによる分裂ピーク
+                Area_V_t = np.abs(integrate.trapz(V_t, x)) # ピークの面積を計算
 
-                y_V = y_V + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
-                y_Vtotal = y_Vtotal + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
+                y_V = y_V + V_w + V_t # Voigt functionの成分保存
+                y_Vtotal = y_Vtotal + V_w + V_t # Voigt functionの総和, 1つの関数としての表現
 
                 list_y_V.append(y_V)
                 list_A_Vw.append(Area_V_w)
@@ -890,40 +884,40 @@ class FittingFunctions():
             return [list_y_V, y_Vtotal, list_A_Vw, list_A_Vt]
 
 
-        elif type(params[0]) is not list:
-            counts = len(XPS_FP.BindIndex)
+        elif type(params[0]) is not list: # tuple(parameters)の場合, 束縛されているパラメーターを後から取り込みVoigt functionを計算する
+            counts = len(XPS_FP.BindIndex) # 束縛されているパラメーターの数
 
-            N_func = int((len(params)+counts)/6)
+            N_func = int((len(params)+counts)/6) # voiht関数の数
             
-            params_mod = list(params)
+            params_mod = list(params) # パラメーターをリストに変換
             for i in XPS_FP.BindIndex:
-                s = i[0]
-                t = i[1]
-                st = 6*s + t
+                s = i[0] # 束縛されているパラメーターの関数番号
+                t = i[1] # 束縛されているパラメーターのパラメーター番号
+                st = 6*s + t # 束縛されているパラメーターの挿入位置を計算
 
-                params_mod.insert(st, XPS_FP.Dict_FitComps[f'Comp. {s+1}'][XPS_FP.ParamName[t]])
+                params_mod.insert(st, XPS_FP.Dict_FitComps[f'Comp. {s+1}'][XPS_FP.ParamName[t]]) # 束縛されているパラメーターを挿入
 
-            L_params = []
-            y_V = np.zeros_like(x)
+            L_params = [] # ピークのパラメーターを格納するリスト
+            y_V = np.zeros_like(x) # Voigt functionの総和を格納する配列, 1つの関数として表現(フィッティング結果そのもの)
             for i in range(0, N_func, 1):
-                p = params_mod[6*i : 6*(i+1)]
-                L_params.append(p)
+                p = params_mod[6*i : 6*(i+1)] # ピークのパラメーターを取り出す
+                L_params.append(p) # ピークのパラメーターをリストに格納
 
-                if AbsorRel == 'Absol.':
+                if AbsorRel == 'Absol.': # ピーク位置:Absol.(絶対位置指定)の場合
                     BE = L_params[i][0] # ピーク位置
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1':
-                    if i == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1': # ピーク位置:Relat.(相対位置指定)の場合, method1: 相対位置の基準は1つ目のピークの位置
+                    if i == 0: # 1つ目のピークの場合, ピーク位置はそのまま
                         BE = L_params[i][0]
 
-                    elif i > 0:
+                    elif i > 0: # 2つ目以降のピークの場合, ピーク位置は1つ目のピークの位置からの相対位置
                         BE = L_params[0][0] + L_params[i][0]
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2':
-                    if i%2 == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2': # ピーク位置:Relat.(相対位置指定)の場合, method2: 相対位置の基準は奇数番ピークの位置
+                    if i%2 == 0: # 奇数番のピークの場合, ピーク位置はそのまま(Pythonのインデックスは0から始まるため)
                         BE = L_params[i][0]
 
-                    elif i%2 == 1:
+                    elif i%2 == 1: # 偶数番のピークの場合, ピーク位置は奇数番のピークの位置からの相対位置
                         BE = L_params[i-1][0] + L_params[i][0]
 
                 I = L_params[i][1] # ピーク強度
