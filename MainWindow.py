@@ -146,11 +146,11 @@ class XPS_FittingPanels(QWidget):
     gco = None
 
     ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
-    Dict_FitComps = {}
-    Dict_CheckState = {}
-    BindIndex = []
-    guess_init = []
-    FitParams = []
+    Dict_FitComps = {} #Fittingに使用する各コンポーネントのパラメータを管理する辞書
+    Dict_CheckState = {} #Fittingに使用する各コンポーネントのチェックボックスの状態を管理する辞書, パラメータの拘束状態を反映する
+    BindIndex = [] #Fittingに使用するパラメータが拘束されている場合、そのインデックスを格納するリスト
+    guess_init = [] #Fittingに使用するパラメータの初期値を格納するリスト
+    FitParams = [] #Fitting後のパラメータを格納するリスト
     AbsorRel = ''
     RelMethod = ''
 
