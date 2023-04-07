@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import(
     QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout, QHBoxLayout, QMenu, QTextEdit)
 import pandas as pd
 import Fit_XPSSpectra as fXPS
+import XPSFileLoader as xpsfl
 
 #Definition of Main window
 class MainWindow(QMainWindow):
@@ -62,7 +63,7 @@ class MainWindow(QMainWindow):
 
     #XPSのデータを読み込むメソッド, 複数のデータの分割にも対応
     def XPS_DataReshape(self):
-        loader = fXPS.FileLoader()
+        loader = xpsfl.FileLoader()
         loader.XPS_DataReshape()
 
     #XPSのfittingに際して使用する各種windowの表示を行うメソッド
