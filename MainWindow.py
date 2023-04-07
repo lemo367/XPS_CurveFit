@@ -391,10 +391,10 @@ class XPS_FittingPanels(QWidget):
                 self.CheckBox.index = f"Check_B.R. {i-29}"
                 self.CheckBox.setChecked(True)
 
-        for i in range(0, 2, 1):
-            self.BGcheckBOX = QCheckBox(self.FitPanel)
-            self.BGcheckBOX.move(180, 275+30*i)
-            self.BGcheckBOX.index = f'Check_B.G. {i}'
+        #for i in range(0, 2, 1):
+        #    self.BGcheckBOX = QCheckBox(self.FitPanel)
+        #    self.BGcheckBOX.move(180, 275+30*i)
+        #    self.BGcheckBOX.index = f'Check_B.G. {i}'
 
 
         #各種ラベルの定義
@@ -422,10 +422,10 @@ class XPS_FittingPanels(QWidget):
                 self.Label_Tips.move(500, 300+15*(i-1))
                 self.Label_Tips.setFixedWidth(335)
 
-        BGCoeff = ['Slope', 'Intercept']
-        for i in range(len(BGCoeff)):
-            self.Label_BGCoeff = QLabel(BGCoeff[i], self.FitPanel)
-            self.Label_BGCoeff.move(10, 275+30*i)
+        #BGCoeff = ['Slope', 'Intercept']
+        #for i in range(len(BGCoeff)):
+        #    self.Label_BGCoeff = QLabel(BGCoeff[i], self.FitPanel)
+        #    self.Label_BGCoeff.move(10, 275+30*i)
 
         #ボタンの生成
         ButtonName_Fit = ['Open Graph', 'Check', 'Fit', 'add BG']
