@@ -197,6 +197,12 @@ class XPS_FittingPanels(QWidget):
             self.Abs_Rel.addItem(f'{i}')
 
         #スピンボックスの生成
+        self.listSpin1 = []
+        self.listSpin2 = []
+        self.listSpin3 = []
+        self.listSpin4 = []
+        self.listSpin5 = []
+        self.listSpin6 = []
         for i in range(0, 36, 1):
             self.spinBOX = QDoubleSpinBox(self.FitPanel)
             self.spinBOX.valueChanged.connect(self.getFitParams)
@@ -207,6 +213,24 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.index = f"B.E. {i+1}"
                 self.spinBOX.setRange(0, 1500)
                 self.spinBOX.setSingleStep(0.5)
+                
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
 
             elif 6 <= i <= 11:
                 self.spinBOX.move(70+(140*(i-6)), 110)
@@ -214,11 +238,47 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.setRange(0, 2000000)
                 self.spinBOX.setSingleStep(100)
 
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
+
             elif 12 <= i <= 17:
                 self.spinBOX.move(70+(140*(i-12)), 140)
                 self.spinBOX.index = f"W_gau. {i-11}"
                 self.spinBOX.setRange(0, 1000)
                 self.spinBOX.setSingleStep(0.1)
+
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
 
             elif 18 <= i <= 23:
                 self.spinBOX.move(70+(140*(i-18)), 170)
@@ -226,11 +286,47 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.setRange(0, 1000)
                 self.spinBOX.setSingleStep(0.05)
 
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
+
             elif 24 <= i <= 29:
                 self.spinBOX.move(70+(140*(i-24)), 200)
                 self.spinBOX.index = f"S.O.S. {i-23}"
                 self.spinBOX.setRange(0, 100)
                 self.spinBOX.setSingleStep(0.1)
+
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
 
             elif 30 <= i <= 35:
                 self.spinBOX.move(70+(140*(i-30)), 230)
@@ -238,10 +334,31 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.setRange(0, 1)
                 self.spinBOX.setSingleStep(0.02)
 
-        for i in range(0, 2, 1):
-            self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
-            self.BGspinBOX.move(70, 275+30*i)
-            self.BGspinBOX.index = f'B.G. {i}'
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
+
+        #スピンボックスへの値の反映が後々やりやすくなるように辞書でリストを管理
+        self.dictSpinBoxList = {'listSpin1': self.listSpin1, 'listSpin2': self.listSpin2, 'listSpin3': self.listSpin3, 'listSpin4': self.listSpin4, 'listSpin5': self.listSpin5, 'listSpin6': self.listSpin6}
+
+        #for i in range(0, 2, 1):
+        #    self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
+        #    self.BGspinBOX.move(70, 275+30*i)
+        #    self.BGspinBOX.index = f'B.G. {i}'
 
         #チェックボックスの生成
         for i in range(0, 36, 1):
@@ -317,7 +434,6 @@ class XPS_FittingPanels(QWidget):
             self.Button_Fit.move(250+(90*i), 30)
             self.Button_Fit.clicked.connect(self.XPSFit_FP)
         #---------Setting for Fit Panel----------
-
 
         #---------Setting for Data Panel----------
         self.DataPanel = QMdiSubWindow()
@@ -465,7 +581,6 @@ class XPS_FittingPanels(QWidget):
             SpectraName = list(loader.XPS_Dict_DF.keys())
             for i in SpectraName:
                 self.combo_DataName.addItem(f'{i}')
-
 
         elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
             SubMethod = self.combo_BGsubs.currentText() #SubMethod: Substraction Method, バックグラウンドを引く方法
@@ -672,7 +787,25 @@ class XPS_FittingPanels(QWidget):
                 Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5) #フィッティング結果のVoigt関数の和, 1つの関数・曲線としてプロット
 
                 self.canvas.draw()
+                
                 print(self.FitParams) #フィッティング結果のパラメータを表示
+
+                N_func = len(self.FitParams) #Voigt関数の数
+                for i in range(N_func):
+                    if f'listSpin{i+1}' in self.dictSpinBoxList.keys():
+                        BE = self.dictSpinBoxList[f'listSpin{i+1}'][0]
+                        Intensity = self.dictSpinBoxList[f'listSpin{i+1}'][1]
+                        Wid_G = self.dictSpinBoxList[f'listSpin{i+1}'][2]
+                        Wid_L = self.dictSpinBoxList[f'listSpin{i+1}'][3]
+                        SOS = self.dictSpinBoxList[f'listSpin{i+1}'][4]
+                        BR = self.dictSpinBoxList[f'listSpin{i+1}'][5]
+
+                        BE.setValue(self.FitParams[i][0])
+                        Intensity.setValue(self.FitParams[i][1])
+                        Wid_G.setValue(self.FitParams[i][2])
+                        Wid_L.setValue(self.FitParams[i][3])
+                        SOS.setValue(self.FitParams[i][4])
+                        BR.setValue(self.FitParams[i][5])
 
                 for i in range(len(PeakArea)):
                     print(PeakArea[i]) #各Voigt関数のピーク面積を表示
