@@ -450,11 +450,11 @@ class XPS_FittingPanels(QWidget):
         self.Label_DataName = QLabel('Choose spectra', self.DataPanel)
         self.Label_DataName.move(20, 40)
 
-        BGSubstractionMethod = ['Shirley', 'Linear']
+        BGSubtractionMethod = ['Shirley', 'Linear']
         self.combo_BGsubs = QComboBox(self.DataPanel)
         self.combo_BGsubs.move(30, 250)
         self.combo_BGsubs.setFixedWidth(120)
-        for i in BGSubstractionMethod:
+        for i in BGSubtractionMethod:
             self.combo_BGsubs.addItem(i)
 
         #スピンボックスの生成
@@ -465,7 +465,7 @@ class XPS_FittingPanels(QWidget):
         self.LabelRange.setGeometry(65, 105, 150, 20)
         
         #ボタンの生成
-        ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Substract']
+        ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Subtract']
         for i in range(len(ButtonName_Data)):
             self.Button_Data = QPushButton(ButtonName_Data[i], self.DataPanel)
             self.Button_Data.index = ButtonName_Data[i]
@@ -482,7 +482,7 @@ class XPS_FittingPanels(QWidget):
                 self.Button_Data.move(145, 248)
 
         #各種ラベル
-        self.Label_BGmethod = QLabel('<p><font size="3">Choose substraction method of background</font></p>', self.DataPanel)
+        self.Label_BGmethod = QLabel('<p><font size="3">Choose subtraction method of background</font></p>', self.DataPanel)
         self.Label_BGmethod.move(10, 220)
         self.Label_BGmethod.setFixedWidth(270)
         #---------Setting for Data Panel----------
@@ -582,8 +582,8 @@ class XPS_FittingPanels(QWidget):
             for i in SpectraName:
                 self.combo_DataName.addItem(f'{i}')
 
-        elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
-            SubMethod = self.combo_BGsubs.currentText() #SubMethod: Substraction Method, バックグラウンドを引く方法
+        elif Button.text() == 'Subtract' and loader.XPS_Dict_DF != {}:
+            SubMethod = self.combo_BGsubs.currentText() #SubMethod: Subtraction Method, バックグラウンドを引く方法
 
             if SubMethod == 'Shirley' and '_proc' in DataKey: #Shirleyバックグラウンドを引く場合
                 f_x = Intensity #f_x: function of x, Intensityをf_xとして扱う
@@ -618,7 +618,7 @@ class XPS_FittingPanels(QWidget):
                 if count == 3 and Resid_Area == 0: #ループ3回目でResid_Areaが0になった場合
                     B_x = k*Q/SpectraArea + B_init
                 
-                Intensity_BG = Intensity-B_x #Intensity_BG: Intensity Background Substracted, Intensityからバックグラウンドを引いたもの
+                Intensity_BG = Intensity-B_x #Intensity_BG: Intensity Background Subtracted, Intensityからバックグラウンドを引いたもの
                 loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG #辞書に新たにIntensityBGというキーを作成し, その中にIntensity_BGを格納する
                 loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x #辞書に新たにBackgroundというキーを作成し, その中にB_xを格納する
                 BackGround = self.ax.plot(x, B_x)
