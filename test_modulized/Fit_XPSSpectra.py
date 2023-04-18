@@ -17,7 +17,6 @@ import itertools
 
 #----------データの読み込みに関するクラス-----------
 class FileLoader(QWidget):
-    '''Kratos XPSから生成されるテキストデータをスペクトルごとに分割して保存、読み戻す機能を持つクラス'''
     XPS_Dict_DF = {} #分割したXPSテキストデータをDataframeとして読み込み、管理する辞書
 
     def __init__(self) -> None:
@@ -31,7 +30,9 @@ class FileLoader(QWidget):
         # fname[0]は選択したファイルのパス（ファイル名を含む）
         if fname[0]:
             # ファイル読み込み
-            with open(fname[0], 'r') as f:
+            f = open(fname[0], 'r')
+            # テキストエディタにファイル内容書き込み
+            with f:
                 self.data = f.read()
         
             LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'
@@ -51,19 +52,19 @@ class FileLoader(QWidget):
             
                     Dict_Data[SpectraName[i]] = Div_data #辞書に分割したテキストデータを追加
 
-                LO_SlashinPath = fname[0].rfind('/')
-                PrefixDir = fname[0][0 : LO_SlashinPath]
+                LO_SlashinPath = fname[0].rfind('/') #ファイルパスの最後の'/'の位置
+                PrefixDir = fname[0][0 : LO_SlashinPath] #ファイルパスの最後の'/'の前までの文字列
                 Div_DataFilePath = [f'{PrefixDir}/{i}.txt' for i in SpectraName] #分割したテキストデータのファイルパスのリスト
 
                 for i in range(len(Div_DataFilePath)):
-                    with open(Div_DataFilePath[i], mode = 'w') as f:
-                        f.write(Dict_Data[SpectraName[i]])
+                    with open(Div_DataFilePath[i], mode = 'w') as f: #分割したテキストデータをファイルに書き込み
+                        f.write(Dict_Data[SpectraName[i]]) #辞書から分割したテキストデータを取り出し、ファイルに書き込み
 
                     dataset = pd.read_csv(Div_DataFilePath[i], header = 3, delimiter = '\t') #分割したテキストデータをDataframeとして読み込み
                     self.XPS_Dict_DF[SpectraName[i]] = dataset #辞書に読み込んだDataframeを追加
             #------------ファイル分割処理--------------
 
-            else:
+            else: #ファイル分割がない場合
                 dataset = pd.read_csv(fname[0], header = 3, delimiter = '\t')
                 self.XPS_Dict_DF[SpectraName[0]] = dataset
 
@@ -73,11 +74,11 @@ class XPS_FittingPanels(QWidget):
     gco = None
 
     ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
-    Dict_FitComps = {}
-    Dict_CheckState = {}
-    BindIndex = []
-    guess_init = []
-    FitParams = []
+    Dict_FitComps = {} #Fittingに使用する各コンポーネントのパラメータを管理する辞書
+    Dict_CheckState = {} #Fittingに使用する各コンポーネントのチェックボックスの状態を管理する辞書, パラメータの拘束状態を反映する
+    BindIndex = [] #Fittingに使用するパラメータが拘束されている場合、そのインデックスを格納するリスト
+    guess_init = [] #Fittingに使用するパラメータの初期値を格納するリスト
+    FitParams = [] #Fitting後のパラメータを格納するリスト
     AbsorRel = ''
     RelMethod = ''
 
@@ -124,6 +125,12 @@ class XPS_FittingPanels(QWidget):
             self.Abs_Rel.addItem(f'{i}')
 
         #スピンボックスの生成
+        self.listSpin1 = []
+        self.listSpin2 = []
+        self.listSpin3 = []
+        self.listSpin4 = []
+        self.listSpin5 = []
+        self.listSpin6 = []
         for i in range(0, 36, 1):
             self.spinBOX = QDoubleSpinBox(self.FitPanel)
             self.spinBOX.valueChanged.connect(self.getFitParams)
@@ -134,6 +141,24 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.index = f"B.E. {i+1}"
                 self.spinBOX.setRange(0, 1500)
                 self.spinBOX.setSingleStep(0.5)
+                
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
 
             elif 6 <= i <= 11:
                 self.spinBOX.move(70+(140*(i-6)), 110)
@@ -141,11 +166,47 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.setRange(0, 2000000)
                 self.spinBOX.setSingleStep(100)
 
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
+
             elif 12 <= i <= 17:
                 self.spinBOX.move(70+(140*(i-12)), 140)
                 self.spinBOX.index = f"W_gau. {i-11}"
                 self.spinBOX.setRange(0, 1000)
                 self.spinBOX.setSingleStep(0.1)
+
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
 
             elif 18 <= i <= 23:
                 self.spinBOX.move(70+(140*(i-18)), 170)
@@ -153,11 +214,47 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.setRange(0, 1000)
                 self.spinBOX.setSingleStep(0.05)
 
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
+
             elif 24 <= i <= 29:
                 self.spinBOX.move(70+(140*(i-24)), 200)
                 self.spinBOX.index = f"S.O.S. {i-23}"
                 self.spinBOX.setRange(0, 100)
                 self.spinBOX.setSingleStep(0.1)
+
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
 
             elif 30 <= i <= 35:
                 self.spinBOX.move(70+(140*(i-30)), 230)
@@ -165,10 +262,31 @@ class XPS_FittingPanels(QWidget):
                 self.spinBOX.setRange(0, 1)
                 self.spinBOX.setSingleStep(0.02)
 
-        for i in range(0, 2, 1):
-            self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
-            self.BGspinBOX.move(70, 275+30*i)
-            self.BGspinBOX.index = f'B.G. {i}'
+                if (i+1)%6 == 1:
+                    self.listSpin1.append(self.spinBOX)
+
+                elif (i+1)%6 == 2:
+                    self.listSpin2.append(self.spinBOX)
+
+                elif (i+1)%6 == 3:
+                    self.listSpin3.append(self.spinBOX)
+                
+                elif (i+1)%6 == 4:
+                    self.listSpin4.append(self.spinBOX)
+
+                elif (i+1)%6 == 5:
+                    self.listSpin5.append(self.spinBOX)
+
+                elif (i+1)%6 == 0:
+                    self.listSpin6.append(self.spinBOX)
+
+        #スピンボックスへの値の反映が後々やりやすくなるように辞書でリストを管理
+        self.dictSpinBoxList = {'listSpin1': self.listSpin1, 'listSpin2': self.listSpin2, 'listSpin3': self.listSpin3, 'listSpin4': self.listSpin4, 'listSpin5': self.listSpin5, 'listSpin6': self.listSpin6}
+
+        #for i in range(0, 2, 1):
+        #    self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
+        #    self.BGspinBOX.move(70, 275+30*i)
+        #    self.BGspinBOX.index = f'B.G. {i}'
 
         #チェックボックスの生成
         for i in range(0, 36, 1):
@@ -201,10 +319,10 @@ class XPS_FittingPanels(QWidget):
                 self.CheckBox.index = f"Check_B.R. {i-29}"
                 self.CheckBox.setChecked(True)
 
-        for i in range(0, 2, 1):
-            self.BGcheckBOX = QCheckBox(self.FitPanel)
-            self.BGcheckBOX.move(180, 275+30*i)
-            self.BGcheckBOX.index = f'Check_B.G. {i}'
+        #for i in range(0, 2, 1):
+        #    self.BGcheckBOX = QCheckBox(self.FitPanel)
+        #    self.BGcheckBOX.move(180, 275+30*i)
+        #    self.BGcheckBOX.index = f'Check_B.G. {i}'
 
 
         #各種ラベルの定義
@@ -232,10 +350,10 @@ class XPS_FittingPanels(QWidget):
                 self.Label_Tips.move(500, 300+15*(i-1))
                 self.Label_Tips.setFixedWidth(335)
 
-        BGCoeff = ['Slope', 'Intercept']
-        for i in range(len(BGCoeff)):
-            self.Label_BGCoeff = QLabel(BGCoeff[i], self.FitPanel)
-            self.Label_BGCoeff.move(10, 275+30*i)
+        #BGCoeff = ['Slope', 'Intercept']
+        #for i in range(len(BGCoeff)):
+        #    self.Label_BGCoeff = QLabel(BGCoeff[i], self.FitPanel)
+        #    self.Label_BGCoeff.move(10, 275+30*i)
 
         #ボタンの生成
         ButtonName_Fit = ['Open Graph', 'Check', 'Fit', 'add BG']
@@ -244,7 +362,6 @@ class XPS_FittingPanels(QWidget):
             self.Button_Fit.move(250+(90*i), 30)
             self.Button_Fit.clicked.connect(self.XPSFit_FP)
         #---------Setting for Fit Panel----------
-
 
         #---------Setting for Data Panel----------
         self.DataPanel = QMdiSubWindow()
@@ -261,11 +378,11 @@ class XPS_FittingPanels(QWidget):
         self.Label_DataName = QLabel('Choose spectra', self.DataPanel)
         self.Label_DataName.move(20, 40)
 
-        BGSubstractionMethod = ['Shirley', 'Linear']
+        BGSubtractionMethod = ['Shirley', 'Linear']
         self.combo_BGsubs = QComboBox(self.DataPanel)
         self.combo_BGsubs.move(30, 250)
         self.combo_BGsubs.setFixedWidth(120)
-        for i in BGSubstractionMethod:
+        for i in BGSubtractionMethod:
             self.combo_BGsubs.addItem(i)
 
         #スピンボックスの生成
@@ -276,7 +393,7 @@ class XPS_FittingPanels(QWidget):
         self.LabelRange.setGeometry(65, 105, 150, 20)
         
         #ボタンの生成
-        ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Substract']
+        ButtonName_Data = ['Draw Graph', 'Make Processed Wave', 'Subtract']
         for i in range(len(ButtonName_Data)):
             self.Button_Data = QPushButton(ButtonName_Data[i], self.DataPanel)
             self.Button_Data.index = ButtonName_Data[i]
@@ -293,7 +410,7 @@ class XPS_FittingPanels(QWidget):
                 self.Button_Data.move(145, 248)
 
         #各種ラベル
-        self.Label_BGmethod = QLabel('<p><font size="3">Choose substraction method of background</font></p>', self.DataPanel)
+        self.Label_BGmethod = QLabel('<p><font size="3">Choose subtraction method of background</font></p>', self.DataPanel)
         self.Label_BGmethod.move(10, 220)
         self.Label_BGmethod.setFixedWidth(270)
         #---------Setting for Data Panel----------
@@ -393,61 +510,57 @@ class XPS_FittingPanels(QWidget):
             for i in SpectraName:
                 self.combo_DataName.addItem(f'{i}')
 
-
-        elif Button.text() == 'Substract' and loader.XPS_Dict_DF != {}:
-            SubMethod = self.combo_BGsubs.currentText() #SubMethod: Substraction Method, バックグラウンドを引く方法
+        elif Button.text() == 'Subtract' and loader.XPS_Dict_DF != {}:
+            SubMethod = self.combo_BGsubs.currentText() #SubMethod: Subtraction Method, バックグラウンドを引く方法
 
             if SubMethod == 'Shirley' and '_proc' in DataKey: #Shirleyバックグラウンドを引く場合
-                f_x = Intensity
-                x = BindingEnergy
+                f_x = Intensity #f_x: function of x, Intensityをf_xとして扱う
+                x = BindingEnergy #x: x-axis, BindingEnergyをxとして扱う
                 B_init = f_x[-1] #最初のバックグラウンド
-                k = f_x[0] - B_init
-                count = 1
+                k = f_x[0] - B_init #k: constant, f_xの最初の値から最後の値を引いたもの
+                count = 1 #count: counter, while文のループ回数をカウントする
                 
-                while count == 1:
-                    g_x = f_x - B_init
-                    SpectraArea_init = np.abs(integrate.trapz(g_x, x))
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
+                while count == 1: 
+                    g_x = f_x - B_init #g_x: g(x), f_xからB_initを引いたもの
+                    SpectraArea_init = np.abs(integrate.trapz(g_x, x)) #SpectraArea_init: Spectra Area Initial, スペクトル全面積の初期値
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列
                     count = count +1
 
                 while count == 2:
-                    B_x = k*Q/SpectraArea_init + B_init
-                    g_x = f_x - B_x
-                    SpectraArea = np.abs(integrate.trapz(g_x, x))
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
-                    Resid_Area = SpectraArea - SpectraArea_init
+                    B_x = k*Q/SpectraArea_init + B_init #B_x: B(x), k*Q/SpectraArea_init + B_init, Shirlyバックグラウンドの式
+                    g_x = f_x - B_x #g_x: g(x), f_xからB_xを引いたもの, 1回目のループのB_initがB_xに変わっただけ
+                    SpectraArea = np.abs(integrate.trapz(g_x, x)) #SpectraArea: Spectra Area, スペクトル全面積
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列, g_xの中身が違うだけ
+                    Resid_Area = SpectraArea - SpectraArea_init #Resid_Area: Residual Area, 前回ループとスペクトル全面積を比較して変化があるかどうかを判定する
                     count = count +1
 
-                while count > 2 and Resid_Area != 0:
-                    SpectraArea_p = SpectraArea
-                    B_x = k*Q/SpectraArea_p + B_init
+                while count > 2 and Resid_Area != 0: #Resid_Areaが0になるまでループを続ける
+                    SpectraArea_p = SpectraArea #SpectraArea_p: Spectra Area Previous, 前回ループのスペクトル全面積
+                    B_x = k*Q/SpectraArea_p + B_init #B_x: B(x), SpectraArea_pに変わっただけ
                     g_x = f_x - B_x
-                    SpectraArea = np.abs(integrate.trapz(g_x, x))
+                    SpectraArea = np.abs(integrate.trapz(g_x, x)) #SpectraArea: Spectra Area, スペクトル全面積, SpectraArea_pと違う値になる(直前のループで得られた値を更新する)
                     Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
-                    Resid_Area = SpectraArea - SpectraArea_p
+                    Resid_Area = SpectraArea - SpectraArea_p #Resid_Area: Residual Area, 前回ループとスペクトル全面積を比較して変化があるかどうかを判定する
                     count = count +1
 
-                if count == 3 and Resid_Area == 0:
+                if count == 3 and Resid_Area == 0: #ループ3回目でResid_Areaが0になった場合
                     B_x = k*Q/SpectraArea + B_init
                 
-                Intensity_BG = Intensity-B_x
-                loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG
-                loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x
+                Intensity_BG = Intensity-B_x #Intensity_BG: Intensity Background Subtracted, Intensityからバックグラウンドを引いたもの
+                loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG #辞書に新たにIntensityBGというキーを作成し, その中にIntensity_BGを格納する
+                loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x #辞書に新たにBackgroundというキーを作成し, その中にB_xを格納する
                 BackGround = self.ax.plot(x, B_x)
                 Signal_sub = self.ax.plot(x, Intensity_BG)
                 self.canvas.draw()
 
-                #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
-                #print(SpectraArea_p, SpectraArea, Resid_Area, count)
-
             elif SubMethod == 'Linear' and '_proc' in DataKey: #線形(1次関数)バックグラウンドを引く場合
-                x_1, y_1 = BindingEnergy[0], Intensity[0]
-                x_2, y_2 = BindingEnergy[-1], Intensity[-1]
-                matrix_coef = np.array([[x_1, 1], [x_2, 1]])
-                matrix_y = np.array([y_1, y_2])
-                Slope_Intercept = np.linalg.solve(matrix_coef, matrix_y)
-                a, b = Slope_Intercept[0], Slope_Intercept[1]
-                B_x = a*BindingEnergy+b
+                x_1, y_1 = BindingEnergy[0], Intensity[0] #x_1, y_1: x-axis, y-axis, 範囲制限したBindingEnergyとIntensityの最初の値
+                x_2, y_2 = BindingEnergy[-1], Intensity[-1] #x_2, y_2: x-axis, y-axis, 範囲制限したBindingEnergyとIntensityの最後の値
+                matrix_coef = np.array([[x_1, 1], [x_2, 1]]) #matrix_coef: matrix coefficient, 2x2の行列
+                matrix_y = np.array([y_1, y_2]) #matrix_y: matrix y, 2x1の行列
+                Slope_Intercept = np.linalg.solve(matrix_coef, matrix_y) #Slope_Intercept: Slope and Intercept, 2x1の行列
+                a, b = Slope_Intercept[0], Slope_Intercept[1] #a, b: Slope and Intercept, 1次関数の傾きと切片
+                B_x = a*BindingEnergy+b #B_x: B(x), 1次関数の式
 
                 Intensity_BG = Intensity-B_x
                 loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG
@@ -456,13 +569,10 @@ class XPS_FittingPanels(QWidget):
                 Signal_sub = self.ax.plot(BindingEnergy, Intensity_BG)
                 self.canvas.draw()
 
-                #print(loader.XPS_Dict_DF[f'{DataKey}']['Background'])
-                #print(Slope_Intercept)
-
-            self.combo_SpectraName.clear()
-            SpectraName = list(loader.XPS_Dict_DF.keys())
+            self.combo_SpectraName.clear() #コンボボックスの中身をクリアする
+            SpectraName = list(loader.XPS_Dict_DF.keys()) #SpectraName: Spectra Name, XPSのデータが格納されている辞書のキーをリストに変換する
             for i in SpectraName:
-                if '_proc' in i:
+                if '_proc' in i: #_procが含まれているキーのみをコンボボックスに追加する
                     self.combo_SpectraName.addItem(f'{i}')
 
                 else:
@@ -472,7 +582,7 @@ class XPS_FittingPanels(QWidget):
                 return
 
     def XPSFit_FP(self):
-        Button = self.sender()
+        Button = self.sender() #Button: sender()で押されたボタンの情報を取得する
         loader = FileLoader()
         function = FittingFunctions()
 
@@ -499,16 +609,16 @@ class XPS_FittingPanels(QWidget):
             #print(list_DFindex)
 
         elif Button.text() == 'Check' and '_proc' in DataKey:            
-            guess_init = []
+            guess_init = [] #guess_init: guess initial, パラメータの初期値を格納するリスト, クラス変数とは別なので注意
 
             for i in range(len(self.Dict_FitComps)):
-                FitComps = self.Dict_FitComps[f'Comp. {i+1}']
+                FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
                 
-                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]):
+                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
-                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName])
+                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName]) #あるVoigt関数のパラメータがすべて0でない場合、パラメータをリストに格納する
             
             if guess_init != []:
                 self.ax.cla()
@@ -517,41 +627,40 @@ class XPS_FittingPanels(QWidget):
                 self.ax.set_ylabel(ylabel = 'Intensity (a. u.)', fontsize = 14)
                 self.ax.minorticks_on()
 
-                Spectrum = self.ax.plot(BindingEnergy, IntensityBG)
+                Spectrum = self.ax.plot(BindingEnergy, IntensityBG) #Spectrum: 生データ
 
-                Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0]
+                Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0] #Voight_ini: Voight initial, パラメータ初期値を用いて生成したVoigt関数, 0番目は各voigt関数が成分ごとに格納されている
                 for n, i in enumerate(Voight_ini):
+                    #FuncCheck_fill: パラメータ初期値で生成したVoigt関数のグラフを描画
                     FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_ini)))
-                
+
                 self.canvas.draw()
-            
-                #print(Voight_ini)
-                #print(self.AbsorRel, self.RelMethod)
 
         elif Button.text() == 'Fit' and '_proc' in DataKey:
-            limitation = [0, 1, np.inf]
+            limitation = [0, 1, np.inf] #limitation: limitation of fitting, フィッティングパラメータの範囲制限値を格納
             self.guess_init.clear()
             self.BindIndex.clear()
 
             for i in range(len(self.Dict_FitComps)):
-                FitComps = self.Dict_FitComps[f'Comp. {i+1}']
-                BindParams = self.Dict_CheckState[f'Comp. {i+1}']
+                FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
+                BindParams = self.Dict_CheckState[f'Comp. {i+1}'] #BindParams: Binding Parameters, 各Voigt関数の番号をキーに辞書からパラメータのバインド状態を取り出す, リストに格納
                 
-                if all([FitComps[f'{key}'] == 0 for key in self.ParamName]):
+                if all([FitComps[f'{key}'] == 0 for key in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
-                    innerList = []
+                    innerList = [] #一時的にパラメータを格納するリスト
                     for j in range(len(self.ParamName)):
                         if BindParams[self.ParamName[j]] == False:
-                            innerList.append(FitComps[self.ParamName[j]])
+                            innerList.append(FitComps[self.ParamName[j]]) #パラメータのバインド状態がFalseの場合、パラメータをリストに格納する
 
                         elif BindParams[self.ParamName[j]] == True:
-                            self.BindIndex.append([i, j])
+                            self.BindIndex.append([i, j]) #パラメータのバインド状態がTrueの場合、パラメータのインデックスをリストに格納する, あとでパラメータの挿入に使う
 
-                    self.guess_init.append(innerList)
+                    self.guess_init.append(innerList) #すべてのパラメータをリストに格納する
 
             if self.guess_init != []:
+                #以下パラメータの種別によって制限範囲を変え、上限下限を格納したtuple(=constraint)を作成
                 minimum = [] #各パラメータの下限値を格納するリスト
                 maximum = [] #各パラメータの上限値を格納するリスト
                 for i in range(len(self.guess_init)):
@@ -561,31 +670,32 @@ class XPS_FittingPanels(QWidget):
                         if BindParams[self.ParamName[j]] == True:
                             continue
 
-                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] != 'B.R.':
-                            minimum.append(limitation[0])
-                            maximum.append(limitation[2])
+                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] != 'B.R.': #B.R.以外のパラメータの場合
+                            minimum.append(limitation[0]) #下限値は0
+                            maximum.append(limitation[2]) #上限値は無限大
 
-                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] == 'B.R.':
-                            minimum.append(limitation[0])
-                            maximum.append(limitation[1])
+                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] == 'B.R.': #B.R.の場合
+                            minimum.append(limitation[0]) #下限値は0
+                            maximum.append(limitation[1]) #上限値は1
 
-                constraint = (tuple(minimum), tuple(maximum))
+                constraint = (tuple(minimum), tuple(maximum)) #constraint: フィッティングパラメータの範囲制限値を格納
                 
+                #フィッティングを実行
                 popt, _ = optimize.curve_fit(function.Voigt, BindingEnergy, IntensityBG, p0 = list(itertools.chain.from_iterable(self.guess_init)), bounds = constraint, maxfev = 50000)
 
                 self.FitParams.clear()
                 for i in range(0, int((len(popt)+len(self.BindIndex))/6), 1):
-                    p = popt.tolist()
+                    p = popt.tolist() #フィッティングパラメータが格納されているtupleをリストに変換
                     
                     for j in self.BindIndex:
-                        s = j[0]
-                        t = j[1]
-                        st = 6*s + t
+                        s = j[0] #s: index of fitting components, Voigt関数の番号
+                        t = j[1] #t: index of fitting parameters, パラメータの番号
+                        st = 6*s + t #st: 拘束されたパラメータの挿入位置
 
-                        p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]])
+                        p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]]) #拘束されたパラメータを挿入
 
-                    q = p[6*i : 6*(i+1)]
-                    self.FitParams.append(q) # フィッティング結果をインスタンス変数へ保存
+                    q = p[6*i : 6*(i+1)] #q: 6個ごとにパラメータを取り出しリストに格納, 各Voigt関数のパラメータに分ける
+                    self.FitParams.append(q) # フィッティング結果をn*6リストの形で保存, nはVoigt関数の数
 
                 self.ax.cla()
                 self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
@@ -595,24 +705,42 @@ class XPS_FittingPanels(QWidget):
 
                 Voight_comp = function.Voigt(BindingEnergy, *self.FitParams)[0]
                 for n, i in enumerate(Voight_comp):
+                    #FitComp_fill: Fitting Components Fill, パラメータ最適化後のVoigt関数を書く成分ごとにプロット
                     FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_comp)))
 
-                Fit = function.Voigt(BindingEnergy, *self.FitParams)[1]
-                PeakArea = function.Voigt(BindingEnergy, *self.FitParams)[2]
+                Fit = function.Voigt(BindingEnergy, *self.FitParams)[1] #フィッティング結果のVoigt関数の和, 1つの関数・曲線として得られる
+                PeakArea = function.Voigt(BindingEnergy, *self.FitParams)[2] #各Voigt関数のピーク面積
 
-                Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black')
-                Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5)
+                Experiment = self.ax.scatter(BindingEnergy, IntensityBG, s = 35, facecolors = 'none', edgecolors = 'black') #実験データ, 中空の円でプロット
+                Spectram_Fit = self.ax.plot(BindingEnergy, Fit, c = 'red', lw = 1.5) #フィッティング結果のVoigt関数の和, 1つの関数・曲線としてプロット
 
                 self.canvas.draw()
-                print(self.FitParams)
+                
+                print(self.FitParams) #フィッティング結果のパラメータを表示
+
+                N_func = len(self.FitParams) #Voigt関数の数
+                for i in range(N_func):
+                    if f'listSpin{i+1}' in self.dictSpinBoxList.keys():
+                        BE = self.dictSpinBoxList[f'listSpin{i+1}'][0]
+                        Intensity = self.dictSpinBoxList[f'listSpin{i+1}'][1]
+                        Wid_G = self.dictSpinBoxList[f'listSpin{i+1}'][2]
+                        Wid_L = self.dictSpinBoxList[f'listSpin{i+1}'][3]
+                        SOS = self.dictSpinBoxList[f'listSpin{i+1}'][4]
+                        BR = self.dictSpinBoxList[f'listSpin{i+1}'][5]
+
+                        BE.setValue(self.FitParams[i][0])
+                        Intensity.setValue(self.FitParams[i][1])
+                        Wid_G.setValue(self.FitParams[i][2])
+                        Wid_L.setValue(self.FitParams[i][3])
+                        SOS.setValue(self.FitParams[i][4])
+                        BR.setValue(self.FitParams[i][5])
 
                 for i in range(len(PeakArea)):
-                    print(PeakArea[i])
-                    if i%2 == 1:
+                    print(PeakArea[i]) #各Voigt関数のピーク面積を表示
+                    if i%2 == 1: #ピーク面積の比を表示
                         print(PeakArea[i]/PeakArea[i-1])
-                #print(function.L_params)
 
-        elif Button.text() == 'add BG' and self.FitParams != []:
+        elif Button.text() == 'add BG' and self.FitParams != []: #差し引いたバックグラウンドを戻す
             Iex_withBG = IntensityBG + Background # Intensity observed experimentally with Background
             Ifit_withBG = function.Voigt(BindingEnergy, *self.FitParams)[1] + Background # Intensity fitted by Voigt function with Background
 
@@ -627,9 +755,9 @@ class XPS_FittingPanels(QWidget):
             for n, i in enumerate(Voight_comp):
                 FitComp_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_comp)))
 
-            Experiment = self.ax.scatter(BindingEnergy, Iex_withBG, s = 35, facecolors = 'none', edgecolors = 'black')
-            Spectram_Fit = self.ax.plot(BindingEnergy, Ifit_withBG, c = 'red', lw = 1.5)
-            BG = self.ax.plot(BindingEnergy, Background, c = 'black', lw = 1)
+            Experiment = self.ax.scatter(BindingEnergy, Iex_withBG, s = 35, facecolors = 'none', edgecolors = 'black') # experimental data with Background
+            Spectram_Fit = self.ax.plot(BindingEnergy, Ifit_withBG, c = 'red', lw = 1.5) # fitting curve with Background
+            BG = self.ax.plot(BindingEnergy, Background, c = 'black', lw = 1) # Background
 
             self.canvas.draw()
 
@@ -660,10 +788,8 @@ class XPS_FittingPanels(QWidget):
 
             else:
                 continue
-
-        #print(Index)
-        #print(self.Dict_FitComps)
-
+    
+    # fit panelのチェックボックスから値を取得するメソッド. チェックボックスにconnectされてる.
     def getCheckState(self):
         CheckBox = self.sender()
         Index = CheckBox.index
@@ -690,9 +816,6 @@ class XPS_FittingPanels(QWidget):
 
             else:
                 continue
-
-        #print(Index)
-        #print(self.Dict_CheckState)
 
     def motion(self, event):
         if self.gco == None:
@@ -752,6 +875,7 @@ class XPS_FittingPanels(QWidget):
 
 # Fittingに使用する各種モデル関数を定義するクラス. 現段階ではVoigt functionを実装. 今後関数を増やすことも検討
 class FittingFunctions():
+
     def __init__(self) -> None:
         pass
 
@@ -762,31 +886,31 @@ class FittingFunctions():
         AbsorRel = XPS_FP.AbsorRel
         RelMethod = XPS_FP.RelMethod
 
-        if type(params[0]) is list:
+        if type(params[0]) is list: # tuple(list[])で入力した場合, 各voigt関数成分を独立に格納したlist[NDarray, NDarray, ...]と各成分の和(NDarray)を返す, グラフ描画ではこちらの処理になる
             N_func = len(params)
             
-            list_y_V = []
-            list_A_Vw = []
-            list_A_Vt = []
-            y_Vtotal = np.zeros_like(x)
+            list_y_V = [] # ピーク強度格納用リスト, voigt functionを成分ごとに格納する
+            y_Vtotal = np.zeros_like(x) # ピーク強度格納用リスト, voigt functionの和を格納する
+            list_A_Vw = [] # ピーク面積格納用リスト, 分裂がある場合は強度の大きいピークの方の面積用になる
+            list_A_Vt = [] # ピーク面積格納用リスト, 分裂がある場合は強度の小さいピークの方の面積用になる
             for i in range(0, N_func, 1):    
-                y_V = np.zeros_like(x)
+                y_V = np.zeros_like(x) # 関数の初期化
 
-                if AbsorRel == 'Absol.':
+                if AbsorRel == 'Absol.': # ピーク位置:Absol.(絶対位置指定)の場合
                     BE = params[i][0] # ピーク位置
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1':
-                    if i == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1': # ピーク位置:Relat.(相対位置指定)の場合, method1: 相対位置の基準は1つ目のピークの位置
+                    if i == 0: # 1つ目のピークの場合, BEはそのまま
                         BE = params[i][0]
 
-                    elif i > 0:
+                    elif i > 0: # 2つ目以降のピークの場合, BEは1つ目のピークの位置に相対位置を足したもの
                         BE = params[0][0] + params[i][0]
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2':
-                    if i%2 == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2': # ピーク位置:Relat.(相対位置指定)の場合, method2: 相対位置の基準は奇数番ピークの位置
+                    if i%2 == 0: # 奇数番のピークの場合, BEはそのまま(Pythonのindexは0から始まるため)
                         BE = params[i][0]
 
-                    elif i%2 == 1:
+                    elif i%2 == 1: # 偶数番のピークの場合, BEは奇数番のピークの位置に相対位置を足したもの
                         BE = params[i-1][0] + params[i][0]
                 
                 I = params[i][1] # ピーク強度
@@ -797,17 +921,17 @@ class FittingFunctions():
 
                 z = (x - BE + 1j*gamma)/(W_G * np.sqrt(2.0)) # 強度の大きいピークに対する複素変数の定義
                 w = scipy.special.wofz(z) #Faddeeva function (強度の大きい方)
-                s = (x - BE - SOS+ 1j*gamma)/(W_G * np.sqrt(2.0))
-                t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方)
+                s = (x - BE - SOS + 1j*gamma)/(W_G * np.sqrt(2.0)) # spin orbit couplingによる分裂ピーク表現用の複素変数の定義
+                t = scipy.special.wofz(s) #Faddeeva function (強度の小きい方, spin orbit couplingによる分裂ピーク)
                 
-                V_w = I * (w.real)/(W_G * np.sqrt(2.0*np.pi))
-                Area_V_w = np.abs(integrate.trapz(V_w, x))
+                V_w = I * (w.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionの実部を使用したvoight関数の定義
+                Area_V_w = np.abs(integrate.trapz(V_w, x)) # ピークの面積を計算
 
-                V_t = BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi))
-                Area_V_t = np.abs(integrate.trapz(V_t, x))
+                V_t = BR * I * (t.real)/(W_G * np.sqrt(2.0*np.pi)) #Faddeeva functionの実部を使用したvoight関数の定義, spin orbit couplingによる分裂ピーク
+                Area_V_t = np.abs(integrate.trapz(V_t, x)) # ピークの面積を計算
 
-                y_V = y_V + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
-                y_Vtotal = y_Vtotal + V_w + V_t #Faddeeva functionを用いたvoight関数の定義
+                y_V = y_V + V_w + V_t # Voigt functionの成分保存
+                y_Vtotal = y_Vtotal + V_w + V_t # Voigt functionの総和, 1つの関数としての表現
 
                 list_y_V.append(y_V)
                 list_A_Vw.append(Area_V_w)
@@ -816,40 +940,40 @@ class FittingFunctions():
             return [list_y_V, y_Vtotal, list_A_Vw, list_A_Vt]
 
 
-        elif type(params[0]) is not list:
-            counts = len(XPS_FP.BindIndex)
+        elif type(params[0]) is not list: # tuple(parameters)の場合, 束縛されているパラメーターを後から取り込みVoigt functionを計算する
+            counts = len(XPS_FP.BindIndex) # 束縛されているパラメーターの数
 
-            N_func = int((len(params)+counts)/6)
+            N_func = int((len(params)+counts)/6) # voiht関数の数
             
-            params_mod = list(params)
+            params_mod = list(params) # パラメーターをリストに変換
             for i in XPS_FP.BindIndex:
-                s = i[0]
-                t = i[1]
-                st = 6*s + t
+                s = i[0] # 束縛されているパラメーターの関数番号
+                t = i[1] # 束縛されているパラメーターのパラメーター番号
+                st = 6*s + t # 束縛されているパラメーターの挿入位置を計算
 
-                params_mod.insert(st, XPS_FP.Dict_FitComps[f'Comp. {s+1}'][XPS_FP.ParamName[t]])
+                params_mod.insert(st, XPS_FP.Dict_FitComps[f'Comp. {s+1}'][XPS_FP.ParamName[t]]) # 束縛されているパラメーターを挿入
 
-            L_params = []
-            y_V = np.zeros_like(x)
+            L_params = [] # ピークのパラメーターを格納するリスト
+            y_V = np.zeros_like(x) # Voigt functionの総和を格納する配列, 1つの関数として表現(フィッティング結果そのもの)
             for i in range(0, N_func, 1):
-                p = params_mod[6*i : 6*(i+1)]
-                L_params.append(p)
+                p = params_mod[6*i : 6*(i+1)] # ピークのパラメーターを取り出す
+                L_params.append(p) # ピークのパラメーターをリストに格納
 
-                if AbsorRel == 'Absol.':
+                if AbsorRel == 'Absol.': # ピーク位置:Absol.(絶対位置指定)の場合
                     BE = L_params[i][0] # ピーク位置
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1':
-                    if i == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 1': # ピーク位置:Relat.(相対位置指定)の場合, method1: 相対位置の基準は1つ目のピークの位置
+                    if i == 0: # 1つ目のピークの場合, ピーク位置はそのまま
                         BE = L_params[i][0]
 
-                    elif i > 0:
+                    elif i > 0: # 2つ目以降のピークの場合, ピーク位置は1つ目のピークの位置からの相対位置
                         BE = L_params[0][0] + L_params[i][0]
 
-                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2':
-                    if i%2 == 0:
+                elif AbsorRel == 'Relat.' and RelMethod == 'Method 2': # ピーク位置:Relat.(相対位置指定)の場合, method2: 相対位置の基準は奇数番ピークの位置
+                    if i%2 == 0: # 奇数番のピークの場合, ピーク位置はそのまま(Pythonのインデックスは0から始まるため)
                         BE = L_params[i][0]
 
-                    elif i%2 == 1:
+                    elif i%2 == 1: # 偶数番のピークの場合, ピーク位置は奇数番のピークの位置からの相対位置
                         BE = L_params[i-1][0] + L_params[i][0]
 
                 I = L_params[i][1] # ピーク強度
