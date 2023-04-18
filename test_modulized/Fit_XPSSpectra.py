@@ -31,9 +31,7 @@ class FileLoader(QWidget):
         # fname[0]は選択したファイルのパス（ファイル名を含む）
         if fname[0]:
             # ファイル読み込み
-            f = open(fname[0], 'r')
-            # テキストエディタにファイル内容書き込み
-            with f:
+            with open(fname[0], 'r') as f:
                 self.data = f.read()
         
             LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'

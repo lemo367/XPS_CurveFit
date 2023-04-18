@@ -67,13 +67,13 @@ class MainWindow(QMainWindow):
 
     #XPSのfittingに際して使用する各種windowの表示を行うメソッド
     def show_XPSpanel(self):
-        XPS = fXPS.XPS_FittingPanels()
-        self.mdi.addSubWindow(XPS.PlotPanel)
-        XPS.PlotPanel.show()
-        self.mdi.addSubWindow(XPS.DataPanel)
-        XPS.DataPanel.show()
-        self.mdi.addSubWindow(XPS.FitPanel)
-        XPS.FitPanel.show()
+        self.XPS = fXPS.XPS_FittingPanels()
+        self.mdi.addSubWindow(self.XPS.PlotPanel)
+        self.XPS.PlotPanel.show()
+        self.mdi.addSubWindow(self.XPS.DataPanel)
+        self.XPS.DataPanel.show()
+        self.mdi.addSubWindow(self.XPS.FitPanel)
+        self.XPS.FitPanel.show()
 #-----------END class Main Window------------------
 
 
