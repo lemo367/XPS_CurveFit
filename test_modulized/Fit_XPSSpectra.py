@@ -122,169 +122,35 @@ class XPS_FittingPanels(QWidget):
         for i in AbsANDRel:
             self.Abs_Rel.addItem(f'{i}')
 
+        #スピンボックスへの値の反映が後々やりやすくなるように辞書で管理
+        self.dictSpinBoxList = {f'Comp.{i}': {} for i in range(1, 7, 1)}
         #スピンボックスの生成
-        self.listSpin1 = []
-        self.listSpin2 = []
-        self.listSpin3 = []
-        self.listSpin4 = []
-        self.listSpin5 = []
-        self.listSpin6 = []
-        for i in range(0, 36, 1):
+        self.spinbox_parameters = [
+            {"label": "B.E.", "start": 0, "end": 1500, "step": 0.5, "y": 80},
+            {"label": "Int.", "start": 0, "end": 2000000, "step": 100, "y": 110},
+            {"label": "W_gau.", "start": 0, "end": 1000, "step": 0.1, "y": 140},
+            {"label": "Gamma", "start": 0, "end": 1000, "step": 0.05, "y": 170},
+            {"label": "S.O.S.", "start": 0, "end": 100, "step": 0.1, "y": 200},
+            {"label": "B.R.", "start": 0, "end": 1, "step": 0.02, "y": 230}
+        ]
+        for i in range(36):
             self.spinBOX = QDoubleSpinBox(self.FitPanel)
             self.spinBOX.valueChanged.connect(self.getFitParams)
             self.spinBOX.setDecimals(3)
 
-            if i <= 5:
-                self.spinBOX.move(70+(140*i), 80)
-                self.spinBOX.index = f"B.E. {i+1}"
-                self.spinBOX.setRange(0, 1500)
-                self.spinBOX.setSingleStep(0.5)
-                
-                if (i+1)%6 == 1:
-                    self.listSpin1.append(self.spinBOX)
+            x = 70 + (140 * (i % 6))
+            y = self.spinbox_parameters[i//6]["y"]
+            label = self.spinbox_parameters[i//6]["label"]
+            start = self.spinbox_parameters[i//6]["start"]
+            end = self.spinbox_parameters[i//6]["end"]
+            step = self.spinbox_parameters[i//6]["step"]
+            
+            self.spinBOX.move(x, y)
+            self.spinBOX.index = f"{label} {i%6 + 1}" 
+            self.spinBOX.setRange(start, end)
+            self.spinBOX.setSingleStep(step)
 
-                elif (i+1)%6 == 2:
-                    self.listSpin2.append(self.spinBOX)
-
-                elif (i+1)%6 == 3:
-                    self.listSpin3.append(self.spinBOX)
-                
-                elif (i+1)%6 == 4:
-                    self.listSpin4.append(self.spinBOX)
-
-                elif (i+1)%6 == 5:
-                    self.listSpin5.append(self.spinBOX)
-
-                elif (i+1)%6 == 0:
-                    self.listSpin6.append(self.spinBOX)
-
-            elif 6 <= i <= 11:
-                self.spinBOX.move(70+(140*(i-6)), 110)
-                self.spinBOX.index = f"Int. {i-5}"
-                self.spinBOX.setRange(0, 2000000)
-                self.spinBOX.setSingleStep(100)
-
-                if (i+1)%6 == 1:
-                    self.listSpin1.append(self.spinBOX)
-
-                elif (i+1)%6 == 2:
-                    self.listSpin2.append(self.spinBOX)
-
-                elif (i+1)%6 == 3:
-                    self.listSpin3.append(self.spinBOX)
-                
-                elif (i+1)%6 == 4:
-                    self.listSpin4.append(self.spinBOX)
-
-                elif (i+1)%6 == 5:
-                    self.listSpin5.append(self.spinBOX)
-
-                elif (i+1)%6 == 0:
-                    self.listSpin6.append(self.spinBOX)
-
-            elif 12 <= i <= 17:
-                self.spinBOX.move(70+(140*(i-12)), 140)
-                self.spinBOX.index = f"W_gau. {i-11}"
-                self.spinBOX.setRange(0, 1000)
-                self.spinBOX.setSingleStep(0.1)
-
-                if (i+1)%6 == 1:
-                    self.listSpin1.append(self.spinBOX)
-
-                elif (i+1)%6 == 2:
-                    self.listSpin2.append(self.spinBOX)
-
-                elif (i+1)%6 == 3:
-                    self.listSpin3.append(self.spinBOX)
-                
-                elif (i+1)%6 == 4:
-                    self.listSpin4.append(self.spinBOX)
-
-                elif (i+1)%6 == 5:
-                    self.listSpin5.append(self.spinBOX)
-
-                elif (i+1)%6 == 0:
-                    self.listSpin6.append(self.spinBOX)
-
-            elif 18 <= i <= 23:
-                self.spinBOX.move(70+(140*(i-18)), 170)
-                self.spinBOX.index = f"Gamma {i-17}"
-                self.spinBOX.setRange(0, 1000)
-                self.spinBOX.setSingleStep(0.05)
-
-                if (i+1)%6 == 1:
-                    self.listSpin1.append(self.spinBOX)
-
-                elif (i+1)%6 == 2:
-                    self.listSpin2.append(self.spinBOX)
-
-                elif (i+1)%6 == 3:
-                    self.listSpin3.append(self.spinBOX)
-                
-                elif (i+1)%6 == 4:
-                    self.listSpin4.append(self.spinBOX)
-
-                elif (i+1)%6 == 5:
-                    self.listSpin5.append(self.spinBOX)
-
-                elif (i+1)%6 == 0:
-                    self.listSpin6.append(self.spinBOX)
-
-            elif 24 <= i <= 29:
-                self.spinBOX.move(70+(140*(i-24)), 200)
-                self.spinBOX.index = f"S.O.S. {i-23}"
-                self.spinBOX.setRange(0, 100)
-                self.spinBOX.setSingleStep(0.1)
-
-                if (i+1)%6 == 1:
-                    self.listSpin1.append(self.spinBOX)
-
-                elif (i+1)%6 == 2:
-                    self.listSpin2.append(self.spinBOX)
-
-                elif (i+1)%6 == 3:
-                    self.listSpin3.append(self.spinBOX)
-                
-                elif (i+1)%6 == 4:
-                    self.listSpin4.append(self.spinBOX)
-
-                elif (i+1)%6 == 5:
-                    self.listSpin5.append(self.spinBOX)
-
-                elif (i+1)%6 == 0:
-                    self.listSpin6.append(self.spinBOX)
-
-            elif 30 <= i <= 35:
-                self.spinBOX.move(70+(140*(i-30)), 230)
-                self.spinBOX.index = f"B.R. {i-29}"
-                self.spinBOX.setRange(0, 1)
-                self.spinBOX.setSingleStep(0.02)
-
-                if (i+1)%6 == 1:
-                    self.listSpin1.append(self.spinBOX)
-
-                elif (i+1)%6 == 2:
-                    self.listSpin2.append(self.spinBOX)
-
-                elif (i+1)%6 == 3:
-                    self.listSpin3.append(self.spinBOX)
-                
-                elif (i+1)%6 == 4:
-                    self.listSpin4.append(self.spinBOX)
-
-                elif (i+1)%6 == 5:
-                    self.listSpin5.append(self.spinBOX)
-
-                elif (i+1)%6 == 0:
-                    self.listSpin6.append(self.spinBOX)
-
-        #スピンボックスへの値の反映が後々やりやすくなるように辞書でリストを管理
-        self.dictSpinBoxList = {'listSpin1': self.listSpin1, 'listSpin2': self.listSpin2, 'listSpin3': self.listSpin3, 'listSpin4': self.listSpin4, 'listSpin5': self.listSpin5, 'listSpin6': self.listSpin6}
-
-        #for i in range(0, 2, 1):
-        #    self.BGspinBOX = QDoubleSpinBox(self.FitPanel)
-        #    self.BGspinBOX.move(70, 275+30*i)
-        #    self.BGspinBOX.index = f'B.G. {i}'
+            self.dictSpinBoxList[f'Comp.{i%6 + 1}'][f'{label}'] = self.spinBOX
 
         #チェックボックスの生成
         for i in range(0, 36, 1):
@@ -316,12 +182,6 @@ class XPS_FittingPanels(QWidget):
                 self.CheckBox.move(180+(140*(i-30)), 230)
                 self.CheckBox.index = f"Check_B.R. {i-29}"
                 self.CheckBox.setChecked(True)
-
-        #for i in range(0, 2, 1):
-        #    self.BGcheckBOX = QCheckBox(self.FitPanel)
-        #    self.BGcheckBOX.move(180, 275+30*i)
-        #    self.BGcheckBOX.index = f'Check_B.G. {i}'
-
 
         #各種ラベルの定義
         ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
@@ -709,13 +569,13 @@ class XPS_FittingPanels(QWidget):
 
                 N_func = len(self.FitParams) #Voigt関数の数
                 for i in range(N_func):
-                    if f'listSpin{i+1}' in self.dictSpinBoxList.keys():
-                        BE = self.dictSpinBoxList[f'listSpin{i+1}'][0]
-                        Intensity = self.dictSpinBoxList[f'listSpin{i+1}'][1]
-                        Wid_G = self.dictSpinBoxList[f'listSpin{i+1}'][2]
-                        Wid_L = self.dictSpinBoxList[f'listSpin{i+1}'][3]
-                        SOS = self.dictSpinBoxList[f'listSpin{i+1}'][4]
-                        BR = self.dictSpinBoxList[f'listSpin{i+1}'][5]
+                    if f'Comp.{i+1}' in self.dictSpinBoxList.keys():
+                        BE = self.dictSpinBoxList[f'Comp.{i+1}']['B.E.']
+                        Intensity = self.dictSpinBoxList[f'Comp.{i+1}']['Int.']
+                        Wid_G = self.dictSpinBoxList[f'Comp.{i+1}']['W_gau.']
+                        Wid_L = self.dictSpinBoxList[f'Comp.{i+1}']['Gamma']
+                        SOS = self.dictSpinBoxList[f'Comp.{i+1}']['S.O.S.']
+                        BR = self.dictSpinBoxList[f'Comp.{i+1}']['B.R.']
 
                         BE.setValue(self.FitParams[i][0])
                         Intensity.setValue(self.FitParams[i][1])

@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         Menu_XRD = toolbar.addMenu("&XRD") #XRDのプロットに関するツールを実装予定, 一番は極点図, omega-2thetaは汎用プロット機能が実装できればそれでよい
         Menu_XRD.addAction(XRD_PoleFigure)
 
-        self.setGeometry(0, 0, 1280, 800) #Main Windowのサイズ, (x, y, width, height)
+        self.setGeometry(0, 0, 1600, 900) #Main Windowのサイズ, (x, y, width, height)
         self.setWindowTitle('Main Window') #Main Windowのタイトル
         self.show() #Main Windowの表示
 
