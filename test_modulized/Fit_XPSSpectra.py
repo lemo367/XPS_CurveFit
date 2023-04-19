@@ -30,9 +30,7 @@ class FileLoader(QWidget):
         # fname[0]は選択したファイルのパス（ファイル名を含む）
         if fname[0]:
             # ファイル読み込み
-            f = open(fname[0], 'r')
-            # テキストエディタにファイル内容書き込み
-            with f:
+            with open(fname[0], 'r') as f:
                 self.data = f.read()
         
             LO_Dataset = [i.span() for i in re.finditer('Dataset', self.data)] #Location of 'Dataset'
@@ -516,41 +514,32 @@ class XPS_FittingPanels(QWidget):
             if SubMethod == 'Shirley' and '_proc' in DataKey: #Shirleyバックグラウンドを引く場合
                 f_x = Intensity #f_x: function of x, Intensityをf_xとして扱う
                 x = BindingEnergy #x: x-axis, BindingEnergyをxとして扱う
-                B_init = f_x[-1] #最初のバックグラウンド
+                B_init = f_x[-1] #最初のバックグラウンド, 固定値
+                B_x = f_x[-1] #B_x: B(x), バックグラウンドの値を格納する配列, 初期値はB_initと同じ
                 k = f_x[0] - B_init #k: constant, f_xの最初の値から最後の値を引いたもの
+                SpectraArea = 0 #SpectraArea: Spectra Area, スペクトル全面積, ループ用に0で初期化
+                Q = np.zeros_like(x) #Q: スペクトルの各部分面積の配列, ループ用に0で初期化
                 count = 1 #count: counter, while文のループ回数をカウントする
                 
-                while count == 1: 
-                    g_x = f_x - B_init #g_x: g(x), f_xからB_initを引いたもの
-                    SpectraArea_init = np.abs(integrate.trapz(g_x, x)) #SpectraArea_init: Spectra Area Initial, スペクトル全面積の初期値
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列
-                    count = count +1
-
-                while count == 2:
-                    B_x = k*Q/SpectraArea_init + B_init #B_x: B(x), k*Q/SpectraArea_init + B_init, Shirlyバックグラウンドの式
-                    g_x = f_x - B_x #g_x: g(x), f_xからB_xを引いたもの, 1回目のループのB_initがB_xに変わっただけ
+                while True:
+                    g_x = f_x - B_x #g_x: g(x), f_xからB_initを引いたもの
+                    SpectraArea_p = SpectraArea #前回ループのスペクトル全面積
                     SpectraArea = np.abs(integrate.trapz(g_x, x)) #SpectraArea: Spectra Area, スペクトル全面積
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列, g_xの中身が違うだけ
-                    Resid_Area = SpectraArea - SpectraArea_init #Resid_Area: Residual Area, 前回ループとスペクトル全面積を比較して変化があるかどうかを判定する
-                    count = count +1
+                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))]) #Q: スペクトルの各部分面積の配列
 
-                while count > 2 and Resid_Area != 0: #Resid_Areaが0になるまでループを続ける
-                    SpectraArea_p = SpectraArea #SpectraArea_p: Spectra Area Previous, 前回ループのスペクトル全面積
-                    B_x = k*Q/SpectraArea_p + B_init #B_x: B(x), SpectraArea_pに変わっただけ
-                    g_x = f_x - B_x
-                    SpectraArea = np.abs(integrate.trapz(g_x, x)) #SpectraArea: Spectra Area, スペクトル全面積, SpectraArea_pと違う値になる(直前のループで得られた値を更新する)
-                    Q = np.array([np.abs(integrate.trapz(g_x[i: -1], x[i : -1])) for i in range(len(x))])
-                    Resid_Area = SpectraArea - SpectraArea_p #Resid_Area: Residual Area, 前回ループとスペクトル全面積を比較して変化があるかどうかを判定する
-                    count = count +1
+                    if count >= 1 and SpectraArea == SpectraArea_p: #前回と全面積が変わらなくなった場合
+                        B_x = k*Q/SpectraArea + B_init #最後のB_xを計算する, 計算誤差を無視すれば直前のB_xと同じになるはずだが, 一応計算する
+                        break
 
-                if count == 3 and Resid_Area == 0: #ループ3回目でResid_Areaが0になった場合
-                    B_x = k*Q/SpectraArea + B_init
+                    B_x = k*Q/SpectraArea + B_init #B_x: B(x), Shirlyバックグラウンドの式, B_xを更新する
+                    count += 1
                 
-                Intensity_BG = Intensity-B_x #Intensity_BG: Intensity Background Subtracted, Intensityからバックグラウンドを引いたもの
+                Intensity_BG = Intensity - B_x #Intensity_BG: Intensity Background Subtracted, Intensityからバックグラウンドを引いたもの
                 loader.XPS_Dict_DF[f'{DataKey}']['IntensityBG'] = Intensity_BG #辞書に新たにIntensityBGというキーを作成し, その中にIntensity_BGを格納する
                 loader.XPS_Dict_DF[f'{DataKey}']['Background'] = B_x #辞書に新たにBackgroundというキーを作成し, その中にB_xを格納する
                 BackGround = self.ax.plot(x, B_x)
                 Signal_sub = self.ax.plot(x, Intensity_BG)
+                #print(count)
                 self.canvas.draw()
 
             elif SubMethod == 'Linear' and '_proc' in DataKey: #線形(1次関数)バックグラウンドを引く場合
@@ -578,7 +567,7 @@ class XPS_FittingPanels(QWidget):
                 else:
                     continue
             
-            else:
+            else: #_procが含まれていない場合, エラー避け
                 return
 
     def XPSFit_FP(self):
