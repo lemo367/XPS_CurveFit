@@ -72,26 +72,18 @@ class XPS_FittingPanels(QWidget):
     gco = None
 
     ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.'] #Fittingに使用するパラメータの名前, 基本ここから取り出す
-    Dict_FitComps = {} #Fittingに使用する各コンポーネントのパラメータを管理する辞書
-    Dict_CheckState = {} #Fittingに使用する各コンポーネントのチェックボックスの状態を管理する辞書, パラメータの拘束状態を反映する
+    dictSpinBoxValue = {} #Fittingに使用する各コンポーネントのパラメータを管理する辞書, Voight関数のパラメータかつクラスを跨いで受け渡すために必要
+    for i in range(1, 7, 1):
+        dictSpinBoxValue[f'Comp.{i}'] = {f'{j}': 0 for j in ParamName}
     BindIndex = [] #Fittingに使用するパラメータが拘束されている場合、そのインデックスを格納するリスト
-    guess_init = [] #Fittingに使用するパラメータの初期値を格納するリスト
-    FitParams = [] #Fitting後のパラメータを格納するリスト
     AbsorRel = ''
     RelMethod = ''
-
-    for i in range(1, 7, 1):
-        Dict_FitComps[f'Comp. {i}'] = {f'{j}': 0 for j in ParamName}
-        
-        if i < 5:
-            Dict_CheckState[f'Comp. {i}'] = {f'{j}': False for j in ParamName}
-        
-        else:
-            Dict_CheckState[f'Comp. {i}'] = {f'{j}': True for j in ParamName}
 
     def __init__(self):
         super().__init__()
         self.initUI()
+        self.FitParams = [] #Fitting後のパラメータを格納するリスト
+        self.guess_init = [] #Fittingに使用するパラメータの初期値を格納するリスト
 
     def initUI(self):
         fileloader = FileLoader()
@@ -126,17 +118,17 @@ class XPS_FittingPanels(QWidget):
         self.dictSpinBox = {f'Comp.{i}': {} for i in range(1, 7, 1)}
         #スピンボックスの生成
         self.spinbox_parameters = [
-            {"label": "B.E.", "start": 0, "end": 1500, "step": 0.5, "y": 80},
-            {"label": "Int.", "start": 0, "end": 2000000, "step": 100, "y": 110},
-            {"label": "W_gau.", "start": 0, "end": 1000, "step": 0.1, "y": 140},
-            {"label": "Gamma", "start": 0, "end": 1000, "step": 0.05, "y": 170},
-            {"label": "S.O.S.", "start": 0, "end": 100, "step": 0.1, "y": 200},
-            {"label": "B.R.", "start": 0, "end": 1, "step": 0.02, "y": 230}
+            {"label": f'{self.ParamName[0]}', "start": 0, "end": 1500, "step": 0.5, "y": 80},
+            {"label": f'{self.ParamName[1]}', "start": 0, "end": 2000000, "step": 100, "y": 110},
+            {"label": f'{self.ParamName[2]}', "start": 0, "end": 1000, "step": 0.1, "y": 140},
+            {"label": f'{self.ParamName[3]}', "start": 0, "end": 1000, "step": 0.05, "y": 170},
+            {"label": f'{self.ParamName[4]}', "start": 0, "end": 100, "step": 0.1, "y": 200},
+            {"label": f'{self.ParamName[5]}', "start": 0, "end": 1, "step": 0.02, "y": 230}
         ]
         for i in range(36):
             self.spinBOX = QDoubleSpinBox(self.FitPanel)
-            self.spinBOX.valueChanged.connect(self.getFitParams)
             self.spinBOX.setDecimals(3)
+            self.spinBOX.valueChanged.connect(self.getSpinBoxValue)
 
             x = 70 + (140 * (i % 6))
             y = self.spinbox_parameters[i//6]["y"]
@@ -146,7 +138,7 @@ class XPS_FittingPanels(QWidget):
             step = self.spinbox_parameters[i//6]["step"]
             
             self.spinBOX.move(x, y)
-            self.spinBOX.index = f"{label} {i%6 + 1}" 
+            self.spinBOX.index = f"{label}{i%6 + 1}" 
             self.spinBOX.setRange(start, end)
             self.spinBOX.setSingleStep(step)
 
@@ -172,7 +164,7 @@ class XPS_FittingPanels(QWidget):
             state = self.checkbox_parameters[i//6]['state']
 
             self.checkbox.move(x, y)
-            self.checkbox.index = f'{label} {i%6 + 1}'
+            self.checkbox.index = f'{label}{i%6 + 1}'
             self.checkbox.setChecked(state)
 
             self.dictCheckBox[f'Comp.{i%6 + 1}'][f'{label}'] = self.checkbox
@@ -447,18 +439,19 @@ class XPS_FittingPanels(QWidget):
             #print(list_DFindex)
 
         elif Button.text() == 'Check' and '_proc' in DataKey:            
-            guess_init = [] #guess_init: guess initial, パラメータの初期値を格納するリスト, クラス変数とは別なので注意
+            plot_init = [] #plot_init: 最適化前の初期値をプロット確認用に格納するリスト
 
-            for i in range(len(self.Dict_FitComps)):
-                FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
+            for i in self.dictSpinBox.keys():
+                #FitComps: {B.E.: spinbox, Int.: spinbox...} 
+                FitComps = self.dictSpinBox[i] #FitComps: Fitting Components, 各Voigt関数の番号をキーにパラメータの値を持った辞書を取り出す
                 
-                if all([FitComps[f'{j}'] == 0 for j in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
+                if all([FitComps[f'{key}'].value() == 0 for key in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
-                    guess_init.append([FitComps[f'{j}'] for j in self.ParamName]) #あるVoigt関数のパラメータがすべて0でない場合、パラメータをリストに格納する
+                    plot_init.append([FitComps[f'{key}'].value() for key in self.ParamName]) #あるVoigt関数のパラメータがすべて0でない場合、パラメータをリストに格納する
             
-            if guess_init != []:
+            if plot_init != []:
                 self.ax.cla()
                 self.ax.set_xlabel(xlabel = 'Binding Energy (eV)', fontsize = 14)
                 self.ax.invert_xaxis()
@@ -467,7 +460,7 @@ class XPS_FittingPanels(QWidget):
 
                 Spectrum = self.ax.plot(BindingEnergy, IntensityBG) #Spectrum: 生データ
 
-                Voight_ini = function.Voigt(BindingEnergy, *guess_init)[0] #Voight_ini: Voight initial, パラメータ初期値を用いて生成したVoigt関数, 0番目は各voigt関数が成分ごとに格納されている
+                Voight_ini = function.Voigt(BindingEnergy, *plot_init)[0] #Voight_ini: Voight initial, パラメータ初期値を用いて生成したVoigt関数, 0番目は各voigt関数が成分ごとに格納されている
                 for n, i in enumerate(Voight_ini):
                     #FuncCheck_fill: パラメータ初期値で生成したVoigt関数のグラフを描画
                     FuncCheck_fill = self.ax.fill_between(BindingEnergy, i, np.zeros_like(BindingEnergy), lw = 1.5, facecolor = 'none', hatch = '////', alpha = 1, edgecolor = cm.rainbow(n/len(Voight_ini)))
@@ -479,21 +472,22 @@ class XPS_FittingPanels(QWidget):
             self.guess_init.clear()
             self.BindIndex.clear()
 
-            for i in range(len(self.Dict_FitComps)):
-                FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
-                BindParams = self.dictCheckBox[f'Comp.{i+1}'] #BindParams: Binding Parameters, 各Voigt関数の番号をキーに辞書からパラメータのバインド状態を取り出す, リストに格納
+            for n, i in enumerate(self.dictSpinBox.keys()):
+                #FitComps: {B.E.: spinbox, Int.: spinbox...}
+                FitComps = self.dictSpinBox[i] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す
+                BindParams = self.dictCheckBox[i] #BindParams: Binding Parameters, 属性はQCheckBox, 各Voigt関数の番号をキーに辞書からパラメータのバインド状態を取り出す
                 
-                if all([FitComps[f'{key}'] == 0 for key in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
+                if all([FitComps[f'{key}'].value() == 0 for key in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
                     optParams = [] #最適化するパラメータを格納するリスト
-                    for n, j in enumerate(self.ParamName):
+                    for m, j in enumerate(self.ParamName):
                         if BindParams[j].isChecked() == False:
-                            optParams.append(FitComps[j]) #パラメータのバインド状態がFalseの場合、パラメータをリストに格納する
+                            optParams.append(FitComps[j].value()) #パラメータのバインド状態がFalseの場合、パラメータをリストに格納する
 
                         elif BindParams[j].isChecked() == True:
-                            self.BindIndex.append([i, n]) #パラメータのバインド状態がTrueの場合、パラメータのインデックスをリストに格納する, あとでパラメータの挿入に使う
+                            self.BindIndex.append([n, m]) #パラメータのバインド状態がTrueの場合、パラメータのインデックスをリストに格納する, あとでパラメータの挿入に使う
 
                     self.guess_init.append(optParams) #すべてのパラメータをリストに格納する
 
@@ -529,8 +523,9 @@ class XPS_FittingPanels(QWidget):
                         s = j[0] #s: index of fitting components, Voigt関数の番号
                         t = j[1] #t: index of fitting parameters, パラメータの番号
                         st = 6*s + t #st: 拘束されたパラメータの挿入位置
+                        bindParamValue = self.dictSpinBox[f'Comp.{s+1}'][self.ParamName[t]].value()
 
-                        p.insert(st, self.Dict_FitComps[f'Comp. {s+1}'][self.ParamName[t]]) #拘束されたパラメータを挿入
+                        p.insert(st, bindParamValue) #拘束されたパラメータを挿入
 
                     q = p[6*i : 6*(i+1)] #q: 6個ごとにパラメータを取り出しリストに格納, 各Voigt関数のパラメータに分ける
                     self.FitParams.append(q) # フィッティング結果をn*6リストの形で保存, nはVoigt関数の数
@@ -559,12 +554,12 @@ class XPS_FittingPanels(QWidget):
                 N_func = len(self.FitParams) #Voigt関数の数
                 for i in range(N_func):
                     if f'Comp.{i+1}' in self.dictSpinBox.keys():
-                        BE = self.dictSpinBox[f'Comp.{i+1}']['B.E.']
-                        Intensity = self.dictSpinBox[f'Comp.{i+1}']['Int.']
-                        Wid_G = self.dictSpinBox[f'Comp.{i+1}']['W_gau.']
-                        Wid_L = self.dictSpinBox[f'Comp.{i+1}']['Gamma']
-                        SOS = self.dictSpinBox[f'Comp.{i+1}']['S.O.S.']
-                        BR = self.dictSpinBox[f'Comp.{i+1}']['B.R.']
+                        BE = self.dictSpinBox[f'Comp.{i+1}'][f'{self.ParamName[0]}']
+                        Intensity = self.dictSpinBox[f'Comp.{i+1}'][f'{self.ParamName[1]}']
+                        Wid_G = self.dictSpinBox[f'Comp.{i+1}'][f'{self.ParamName[2]}']
+                        Wid_L = self.dictSpinBox[f'Comp.{i+1}'][f'{self.ParamName[3]}']
+                        SOS = self.dictSpinBox[f'Comp.{i+1}'][f'{self.ParamName[4]}']
+                        BR = self.dictSpinBox[f'Comp.{i+1}'][f'{self.ParamName[5]}']
 
                         BE.setValue(self.FitParams[i][0])
                         Intensity.setValue(self.FitParams[i][1])
@@ -599,33 +594,21 @@ class XPS_FittingPanels(QWidget):
 
             self.canvas.draw()
 
-    # fit panelのスピンボックスから値を取得するメソッド. スピンボックスにconnectされてる.
-    def getFitParams(self):
+    # fitting panelのスピンボックスから値を取得するメソッド. スピンボックスにconnectされてる. クラス間でspinBOXの値を受け渡すのに必要
+    def getSpinBoxValue(self):
         SpinBox = self.sender()
         Index = SpinBox.index
 
-        for i in range(1, len(self.ParamName)+1, 1):
-            if f'{i}' in Index:
-                if 'B.E.' in Index:
-                    self.Dict_FitComps[f'Comp. {i}']['B.E.'] = SpinBox.value()
+        for i in range(6):
+            functionNo = self.dictSpinBoxValue[f'Comp.{i+1}']
 
-                elif 'Int.' in Index:
-                    self.Dict_FitComps[f'Comp. {i}']['Int.'] = SpinBox.value()
+            for j in self.ParamName:
+                if Index == f'{j}{i+1}':
+                    functionNo[j] = SpinBox.value()
+                    break
 
-                elif 'W_gau.' in Index:
-                    self.Dict_FitComps[f'Comp. {i}']['Wid_G'] = SpinBox.value()
-
-                elif 'Gamma' in Index:
-                    self.Dict_FitComps[f'Comp. {i}']['gamma'] = SpinBox.value()
-
-                elif 'S.O.S.' in Index:
-                    self.Dict_FitComps[f'Comp. {i}']['S.O.S.'] = SpinBox.value()
-
-                elif 'B.R.' in Index:
-                    self.Dict_FitComps[f'Comp. {i}']['B.R.'] = SpinBox.value()
-
-            else:
-                continue
+                else:
+                    continue
 
     def motion(self, event):
         if self.gco == None:
@@ -760,8 +743,9 @@ class FittingFunctions():
                 s = i[0] # 束縛されているパラメーターの関数番号
                 t = i[1] # 束縛されているパラメーターのパラメーター番号
                 st = 6*s + t # 束縛されているパラメーターの挿入位置を計算
+                bindParamValue = XPS_FP.dictSpinBoxValue[f'Comp.{s+1}'][XPS_FP.ParamName[t]]
 
-                params_mod.insert(st, XPS_FP.Dict_FitComps[f'Comp. {s+1}'][XPS_FP.ParamName[t]]) # 束縛されているパラメーターを挿入
+                params_mod.insert(st, bindParamValue) # 束縛されているパラメーターを挿入
 
             L_params = [] # ピークのパラメーターを格納するリスト
             y_V = np.zeros_like(x) # Voigt functionの総和を格納する配列, 1つの関数として表現(フィッティング結果そのもの)
