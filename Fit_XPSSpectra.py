@@ -71,7 +71,7 @@ class FileLoader(QWidget):
 class XPS_FittingPanels(QWidget):
     gco = None
 
-    ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
+    ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.'] #Fittingに使用するパラメータの名前, 基本ここから取り出す
     Dict_FitComps = {} #Fittingに使用する各コンポーネントのパラメータを管理する辞書
     Dict_CheckState = {} #Fittingに使用する各コンポーネントのチェックボックスの状態を管理する辞書, パラメータの拘束状態を反映する
     BindIndex = [] #Fittingに使用するパラメータが拘束されている場合、そのインデックスを格納するリスト
@@ -123,7 +123,7 @@ class XPS_FittingPanels(QWidget):
             self.Abs_Rel.addItem(f'{i}')
 
         #スピンボックスへの値の反映が後々やりやすくなるように辞書で管理
-        self.dictSpinBoxList = {f'Comp.{i}': {} for i in range(1, 7, 1)}
+        self.dictSpinBox = {f'Comp.{i}': {} for i in range(1, 7, 1)}
         #スピンボックスの生成
         self.spinbox_parameters = [
             {"label": "B.E.", "start": 0, "end": 1500, "step": 0.5, "y": 80},
@@ -150,38 +150,32 @@ class XPS_FittingPanels(QWidget):
             self.spinBOX.setRange(start, end)
             self.spinBOX.setSingleStep(step)
 
-            self.dictSpinBoxList[f'Comp.{i%6 + 1}'][f'{label}'] = self.spinBOX
+            self.dictSpinBox[f'Comp.{i%6 + 1}'][f'{label}'] = self.spinBOX
 
+        #チェックボックスを管理する辞書
+        self.dictCheckBox = {f'Comp.{i}': {} for i in range(1, 7, 1)}
         #チェックボックスの生成
-        for i in range(0, 36, 1):
-            self.CheckBox = QCheckBox(self.FitPanel)
-            self.CheckBox.stateChanged.connect(self.getCheckState)
+        self.checkbox_parameters = [
+            {'label': f'{self.ParamName[0]}', 'y': 80, 'state': False},
+            {'label': f'{self.ParamName[1]}', 'y': 110, 'state': False},
+            {'label': f'{self.ParamName[2]}', 'y': 140, 'state': False},
+            {'label': f'{self.ParamName[3]}', 'y': 170, 'state': False},
+            {'label': f'{self.ParamName[4]}', 'y': 200, 'state': True},
+            {'label': f'{self.ParamName[5]}', 'y': 230, 'state': True}
+        ]
+        for i in range(36):
+            self.checkbox = QCheckBox(self.FitPanel)
 
-            if i <= 5:
-                self.CheckBox.move(180+(140*i), 80)
-                self.CheckBox.index = f"Check_B.E. {i+1}"
-            
-            elif 6 <= i <= 11:
-                self.CheckBox.move(180+(140*(i-6)), 110)
-                self.CheckBox.index = f"Check_Int. {i-5}"
+            x = 180 + (140 * (i % 6))
+            y = self.checkbox_parameters[i//6]['y']
+            label = self.checkbox_parameters[i//6]['label']
+            state = self.checkbox_parameters[i//6]['state']
 
-            elif 12 <= i <= 17:
-                self.CheckBox.move(180+(140*(i-12)), 140)
-                self.CheckBox.index = f"Check_W_gau. {i-11}"
+            self.checkbox.move(x, y)
+            self.checkbox.index = f'{label} {i%6 + 1}'
+            self.checkbox.setChecked(state)
 
-            elif 18 <= i <= 23:
-                self.CheckBox.move(180+(140*(i-18)), 170)
-                self.CheckBox.index = f"Check_Gamma {i-17}"
-
-            elif 24 <= i <= 29:
-                self.CheckBox.move(180+(140*(i-24)), 200)
-                self.CheckBox.index = f"Check_S.O.S. {i-23}"
-                self.CheckBox.setChecked(True)
-
-            elif 30 <= i <= 35:
-                self.CheckBox.move(180+(140*(i-30)), 230)
-                self.CheckBox.index = f"Check_B.R. {i-29}"
-                self.CheckBox.setChecked(True)
+            self.dictCheckBox[f'Comp.{i%6 + 1}'][f'{label}'] = self.checkbox
 
         #各種ラベルの定義
         ParamName = ['B.E.', 'Int.', 'Wid_G', 'gamma', 'S.O.S.', 'B.R.']
@@ -199,19 +193,14 @@ class XPS_FittingPanels(QWidget):
             self.Label_hold.move(175+(140*i), 55)
 
         Tips = ['B.E. value: Absolute/Relative', 'Method 1: All B.E. values are relative to Comp. 1', 'Method 2: Relative values are Comp. 2 (to Comp. 1), Comp. 4 (to Comp. 3)...']
-        for i in range(len(Tips)):
-            self.Label_Tips = QLabel(f'<p><font size="2.5">{Tips[i]}</font></p>', self.FitPanel)
-            if i < 1:
+        for n, i in enumerate(Tips):
+            self.Label_Tips = QLabel(f'<p><font size="2.5">{i}</font></p>', self.FitPanel)
+            if n < 1:
                 self.Label_Tips.move(240, 285)
                 self.Label_Tips.setFixedWidth(130)
             else:
-                self.Label_Tips.move(500, 300+15*(i-1))
+                self.Label_Tips.move(500, 300+15*(n-1))
                 self.Label_Tips.setFixedWidth(335)
-
-        #BGCoeff = ['Slope', 'Intercept']
-        #for i in range(len(BGCoeff)):
-        #    self.Label_BGCoeff = QLabel(BGCoeff[i], self.FitPanel)
-        #    self.Label_BGCoeff.move(10, 275+30*i)
 
         #ボタンの生成
         ButtonName_Fit = ['Open Graph', 'Check', 'Fit', 'add BG']
@@ -492,38 +481,38 @@ class XPS_FittingPanels(QWidget):
 
             for i in range(len(self.Dict_FitComps)):
                 FitComps = self.Dict_FitComps[f'Comp. {i+1}'] #FitComps: Fitting Components, 各Voigt関数の番号をキーに辞書からパラメータを取り出す, リストに格納
-                BindParams = self.Dict_CheckState[f'Comp. {i+1}'] #BindParams: Binding Parameters, 各Voigt関数の番号をキーに辞書からパラメータのバインド状態を取り出す, リストに格納
+                BindParams = self.dictCheckBox[f'Comp.{i+1}'] #BindParams: Binding Parameters, 各Voigt関数の番号をキーに辞書からパラメータのバインド状態を取り出す, リストに格納
                 
                 if all([FitComps[f'{key}'] == 0 for key in self.ParamName]): #あるVoigt関数のパラメータがすべて0の場合
                     continue
 
                 else:
-                    innerList = [] #一時的にパラメータを格納するリスト
-                    for j in range(len(self.ParamName)):
-                        if BindParams[self.ParamName[j]] == False:
-                            innerList.append(FitComps[self.ParamName[j]]) #パラメータのバインド状態がFalseの場合、パラメータをリストに格納する
+                    optParams = [] #最適化するパラメータを格納するリスト
+                    for n, j in enumerate(self.ParamName):
+                        if BindParams[j].isChecked() == False:
+                            optParams.append(FitComps[j]) #パラメータのバインド状態がFalseの場合、パラメータをリストに格納する
 
-                        elif BindParams[self.ParamName[j]] == True:
-                            self.BindIndex.append([i, j]) #パラメータのバインド状態がTrueの場合、パラメータのインデックスをリストに格納する, あとでパラメータの挿入に使う
+                        elif BindParams[j].isChecked() == True:
+                            self.BindIndex.append([i, n]) #パラメータのバインド状態がTrueの場合、パラメータのインデックスをリストに格納する, あとでパラメータの挿入に使う
 
-                    self.guess_init.append(innerList) #すべてのパラメータをリストに格納する
+                    self.guess_init.append(optParams) #すべてのパラメータをリストに格納する
 
             if self.guess_init != []:
                 #以下パラメータの種別によって制限範囲を変え、上限下限を格納したtuple(=constraint)を作成
                 minimum = [] #各パラメータの下限値を格納するリスト
                 maximum = [] #各パラメータの上限値を格納するリスト
                 for i in range(len(self.guess_init)):
-                    BindParams = self.Dict_CheckState[f'Comp. {i+1}']
+                    BindParams = self.dictCheckBox[f'Comp.{i+1}']
 
-                    for j in range(len(self.ParamName)):
-                        if BindParams[self.ParamName[j]] == True:
+                    for j in self.ParamName:
+                        if BindParams[j].isChecked() == True:
                             continue
 
-                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] != 'B.R.': #B.R.以外のパラメータの場合
+                        elif BindParams[j].isChecked() == False and j != 'B.R.': #B.R.以外のパラメータの場合
                             minimum.append(limitation[0]) #下限値は0
                             maximum.append(limitation[2]) #上限値は無限大
 
-                        elif BindParams[self.ParamName[j]] == False and self.ParamName[j] == 'B.R.': #B.R.の場合
+                        elif BindParams[j].isChecked() == False and j == 'B.R.': #B.R.の場合
                             minimum.append(limitation[0]) #下限値は0
                             maximum.append(limitation[1]) #上限値は1
 
@@ -569,13 +558,13 @@ class XPS_FittingPanels(QWidget):
 
                 N_func = len(self.FitParams) #Voigt関数の数
                 for i in range(N_func):
-                    if f'Comp.{i+1}' in self.dictSpinBoxList.keys():
-                        BE = self.dictSpinBoxList[f'Comp.{i+1}']['B.E.']
-                        Intensity = self.dictSpinBoxList[f'Comp.{i+1}']['Int.']
-                        Wid_G = self.dictSpinBoxList[f'Comp.{i+1}']['W_gau.']
-                        Wid_L = self.dictSpinBoxList[f'Comp.{i+1}']['Gamma']
-                        SOS = self.dictSpinBoxList[f'Comp.{i+1}']['S.O.S.']
-                        BR = self.dictSpinBoxList[f'Comp.{i+1}']['B.R.']
+                    if f'Comp.{i+1}' in self.dictSpinBox.keys():
+                        BE = self.dictSpinBox[f'Comp.{i+1}']['B.E.']
+                        Intensity = self.dictSpinBox[f'Comp.{i+1}']['Int.']
+                        Wid_G = self.dictSpinBox[f'Comp.{i+1}']['W_gau.']
+                        Wid_L = self.dictSpinBox[f'Comp.{i+1}']['Gamma']
+                        SOS = self.dictSpinBox[f'Comp.{i+1}']['S.O.S.']
+                        BR = self.dictSpinBox[f'Comp.{i+1}']['B.R.']
 
                         BE.setValue(self.FitParams[i][0])
                         Intensity.setValue(self.FitParams[i][1])
@@ -634,34 +623,6 @@ class XPS_FittingPanels(QWidget):
 
                 elif 'B.R.' in Index:
                     self.Dict_FitComps[f'Comp. {i}']['B.R.'] = SpinBox.value()
-
-            else:
-                continue
-    
-    # fit panelのチェックボックスから値を取得するメソッド. チェックボックスにconnectされてる.
-    def getCheckState(self):
-        CheckBox = self.sender()
-        Index = CheckBox.index
-
-        for i in range(1, 7, 1):
-            if f'{i}' in Index:
-                if 'B.E.' in Index:
-                    self.Dict_CheckState[f'Comp. {i}']['B.E.'] = CheckBox.isChecked()
-
-                elif 'Int.' in Index:
-                    self.Dict_CheckState[f'Comp. {i}']['Int.'] = CheckBox.isChecked()
-
-                elif 'W_gau.' in Index:
-                    self.Dict_CheckState[f'Comp. {i}']['Wid_G'] = CheckBox.isChecked()
-
-                elif 'Gamma' in Index:
-                    self.Dict_CheckState[f'Comp. {i}']['gamma'] = CheckBox.isChecked()
-
-                elif 'S.O.S.' in Index:
-                    self.Dict_CheckState[f'Comp. {i}']['S.O.S.'] = CheckBox.isChecked()
-
-                elif 'B.R.' in Index:
-                    self.Dict_CheckState[f'Comp. {i}']['B.R.'] = CheckBox.isChecked()
 
             else:
                 continue
