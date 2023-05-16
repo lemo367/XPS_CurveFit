@@ -1,7 +1,5 @@
 import sys
-from PyQt5.QtWidgets import(
-    QMainWindow, QAction, QFileDialog, QApplication, QMdiArea, QMdiSubWindow, QLabel,
-    QComboBox, QPushButton, QWidget, QDoubleSpinBox, QCheckBox, QVBoxLayout, QHBoxLayout, QMenu, QTextEdit)
+from PyQt5.QtWidgets import(QMainWindow, QAction, QFileDialog, QApplication, QMdiArea)
 import pandas as pd
 import Fit_XPSSpectra as fXPS
 
